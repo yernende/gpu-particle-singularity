@@ -1,0 +1,29 @@
+{
+  "cmake.useCMakePresets": "always",
+  "cmake.configureOnOpen": false,
+  "cmake.useVsDeveloperEnvironment": "always",
+  "cmake.buildBeforeRun": true,
+  "cmake.copyCompileCommands": "${workspaceFolder}/out/compile_commands.json",
+  "clangd.arguments": [
+    "--compile-commands-dir=${workspaceFolder}/out",
+    "--background-index",
+    "--clang-tidy"
+  ],
+  "C_Cpp.intelliSenseEngine": "disabled",
+  "C_Cpp.formatting": "disabled",
+  "[c][cpp]": {
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+    "editor.formatOnSave": true,
+    "editor.rulers": [
+      100
+    ]
+  },
+  "files.watcherExclude": {
+    "**/.tools/**": true,
+    "**/out/**": true
+  },
+  "search.exclude": {
+    "**/.tools": true,
+    "**/out": true
+  }
+}

@@ -1,0 +1,5 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Preserve reproducibly generated third-party sources verbatim.
+third_party/glad/** -whitespace

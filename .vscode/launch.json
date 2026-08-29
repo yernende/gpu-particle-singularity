@@ -1,0 +1,61 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug: Interactive (Windows)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${input:cmakeLaunchTargetPath}",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Debug: Smoke test (Windows)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${input:cmakeLaunchTargetPath}",
+      "args": [
+        "--smoke-test"
+      ],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Debug: Interactive (Linux)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${input:cmakeLaunchTargetPath}",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "externalConsole": false,
+      "MIMode": "gdb"
+    },
+    {
+      "name": "Debug: Smoke test (Linux)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${input:cmakeLaunchTargetPath}",
+      "args": [
+        "--smoke-test"
+      ],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "externalConsole": false,
+      "MIMode": "gdb"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "cmakeLaunchTargetPath",
+      "type": "command",
+      "command": "cmake.launchTargetPath",
+      "args": {
+        "targetName": "opengl_lesson_bootstrap"
+      }
+    }
+  ]
+}

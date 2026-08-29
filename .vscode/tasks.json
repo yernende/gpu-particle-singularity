@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "cmake",
+      "label": "CMake: Configure Debug",
+      "command": "configure",
+      "preset": "windows-msvc-debug",
+      "linux": {
+        "preset": "linux-gcc-debug"
+      },
+      "problemMatcher": []
+    },
+    {
+      "type": "cmake",
+      "label": "CMake: Build Debug",
+      "command": "build",
+      "preset": "windows-msvc-debug",
+      "linux": {
+        "preset": "linux-gcc-debug"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}
