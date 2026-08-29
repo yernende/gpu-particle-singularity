@@ -5,7 +5,7 @@
 #include <string>
 #include <string_view>
 
-namespace olb {
+namespace gps {
 namespace {
 
 std::string shader_log(GLuint shader) {
@@ -114,4 +114,4 @@ GLuint ShaderProgram::id() const noexcept {
     return program_;
 }
 
-} // namespace olb
+} // namespace gps

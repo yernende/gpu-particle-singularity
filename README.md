@@ -1,8 +1,10 @@
-# OpenGL Lesson Bootstrap
+# gpu-particle-singularity
 
-A small, reusable C++23/OpenGL 4.6 starter for graphics lessons. It builds one executable with
-strict warnings, lightweight RAII wrappers, Dear ImGui, Catch2 tests, sanitizer presets, and a
-real OpenGL smoke test. The interactive triangle is intentionally disposable sample code.
+`gpu-particle-singularity` is a C++23/OpenGL 4.6 project for a GPU-driven particle
+singularity simulation. It builds one executable with strict warnings, lightweight RAII wrappers,
+Dear ImGui, Catch2 tests, sanitizer presets, and a real OpenGL smoke test. The interactive
+triangle is temporary proof that the branded project baseline works before particle rendering is
+introduced.
 
 ## Platform scope
 
@@ -21,7 +23,7 @@ The manifest pins vcpkg commit `9e593bb18ea69cc5095e012465dcd675a822ed0d`, publi
 GLAD2 is vendored because vcpkg's `glad` port provides GLAD1. The checked-in OpenGL 4.6 Core
 loader was reproducibly generated with GLAD2 v2.0.8 at commit
 `73db193f853e2ee079bf3ca8a64aa2eaf6459043`; see `third_party/glad/PROVENANCE.md` for the exact
-command. Building the starter does not require Python.
+command. Building the project does not require Python.
 
 Clone and bootstrap the pinned vcpkg checkout from the repository root.
 
@@ -115,26 +117,26 @@ frames. No configuration depends on an absolute path or a fixed output filename.
 
 ## Run, smoke test, and test
 
-Start the interactive sample:
+Start the interactive application:
 
 ```powershell
-.\out\build\windows-msvc-debug\opengl-lesson-bootstrap.exe
+.\out\build\windows-msvc-debug\gpu-particle-singularity.exe
 ```
 
 ```bash
-./out/build/linux-gcc-debug/opengl-lesson-bootstrap
+./out/build/linux-gcc-debug/gpu-particle-singularity
 ```
 
-The sample accepts `--help` (or `-h`) and `--smoke-test`. The smoke test creates a real OpenGL
+The application accepts `--help` (or `-h`) and `--smoke-test`. The smoke test creates a real OpenGL
 context, renders and validates three frames, then exits automatically:
 
 ```powershell
-.\out\build\windows-msvc-debug\opengl-lesson-bootstrap.exe --smoke-test
+.\out\build\windows-msvc-debug\gpu-particle-singularity.exe --smoke-test
 ctest --preset windows-msvc-debug
 ```
 
 ```bash
-./out/build/linux-gcc-debug/opengl-lesson-bootstrap --smoke-test
+./out/build/linux-gcc-debug/gpu-particle-singularity --smoke-test
 ctest --preset linux-gcc-debug
 ```
 
@@ -187,30 +189,30 @@ Replace `--dry-run --Werror` with `-i` to apply formatting. Generated GLAD2 sour
 Enable clang-tidy for compiled first-party translation units:
 
 ```powershell
-cmake --preset windows-msvc-debug -DOLB_ENABLE_CLANG_TIDY=ON
+cmake --preset windows-msvc-debug -DGPS_ENABLE_CLANG_TIDY=ON
 cmake --build --preset windows-msvc-debug
 ```
 
 Use `linux-gcc-debug` for the equivalent Linux build. Configuration fails when clang-tidy is
 requested but unavailable. CI additionally configures first-party targets with
-`OLB_WARNINGS_AS_ERRORS=ON`.
+`GPS_WARNINGS_AS_ERRORS=ON`.
 
-## Start a new lesson
+## Reuse as a project template
 
-Use the repository as a template or copy its working tree without `.git` when the new lesson
-needs independent history. Then replace these four identity forms consistently across first-party
+Use the repository as a template or copy its working tree without `.git` when another project
+needs independent history. Replace these four identity forms consistently across first-party
 files:
 
-- `opengl-lesson-bootstrap`: repository, executable, package, and user-facing kebab-case name;
-- `opengl_lesson_bootstrap`: CMake project and target names;
-- `olb`: C++ namespace and CMake function prefix;
-- `OLB`: CMake option and internal variable prefix.
+- `gpu-particle-singularity`: repository, executable, package, and user-facing kebab-case name;
+- `gpu_particle_singularity`: CMake project and target names;
+- `gps`: C++ namespace and CMake function prefix;
+- `GPS`: CMake option and internal variable prefix.
 
 Also update the CMake project description and window title, remove or replace the sample triangle,
 and run a repository-wide search to confirm the old identity is gone:
 
 ```powershell
-rg -n --glob '!third_party/glad/**' 'opengl-lesson-bootstrap|opengl_lesson_bootstrap|\bolb\b|OLB' .
+rg -n --glob '!third_party/glad/**' 'gpu-particle-singularity|gpu_particle_singularity|\bgps\b|GPS' .
 ```
 
 Keep `third_party/glad` unchanged unless the required OpenGL version or extension set changes.

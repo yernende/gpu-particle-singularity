@@ -1,10 +1,10 @@
 include_guard(GLOBAL)
 
-option(OLB_WARNINGS_AS_ERRORS "Treat first-party compiler warnings as errors" OFF)
-option(OLB_ENABLE_SANITIZERS "Enable supported address and undefined-behavior sanitizers" OFF)
-option(OLB_ENABLE_CLANG_TIDY "Run clang-tidy while compiling first-party C++ targets" OFF)
+option(GPS_WARNINGS_AS_ERRORS "Treat first-party compiler warnings as errors" OFF)
+option(GPS_ENABLE_SANITIZERS "Enable supported address and undefined-behavior sanitizers" OFF)
+option(GPS_ENABLE_CLANG_TIDY "Run clang-tidy while compiling first-party C++ targets" OFF)
 
-if(OLB_ENABLE_SANITIZERS AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+if(GPS_ENABLE_SANITIZERS AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     include(CheckCXXSourceCompiles)
     include(CMakePushCheckState)
 
@@ -13,11 +13,11 @@ if(OLB_ENABLE_SANITIZERS AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(CMAKE_REQUIRED_LINK_OPTIONS "/INCREMENTAL:NO")
     check_cxx_source_compiles(
         "int main() { return 0; }"
-        OLB_MSVC_ASAN_RUNTIME_AVAILABLE
+        GPS_MSVC_ASAN_RUNTIME_AVAILABLE
     )
     cmake_pop_check_state()
 
-    if(NOT OLB_MSVC_ASAN_RUNTIME_AVAILABLE)
+    if(NOT GPS_MSVC_ASAN_RUNTIME_AVAILABLE)
         message(FATAL_ERROR
             "MSVC AddressSanitizer was requested, but its runtime libraries are unavailable. "
             "Install the optional MSVC AddressSanitizer component or use a non-sanitized preset."
@@ -25,18 +25,18 @@ if(OLB_ENABLE_SANITIZERS AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     endif()
 endif()
 
-if(OLB_ENABLE_CLANG_TIDY)
+if(GPS_ENABLE_CLANG_TIDY)
     find_program(
-        OLB_CLANG_TIDY_EXECUTABLE
+        GPS_CLANG_TIDY_EXECUTABLE
         NAMES clang-tidy clang-tidy-20 clang-tidy-19 clang-tidy-18
         DOC "Path to clang-tidy"
     )
-    if(NOT OLB_CLANG_TIDY_EXECUTABLE)
-        message(FATAL_ERROR "OLB_ENABLE_CLANG_TIDY is ON, but clang-tidy was not found.")
+    if(NOT GPS_CLANG_TIDY_EXECUTABLE)
+        message(FATAL_ERROR "GPS_ENABLE_CLANG_TIDY is ON, but clang-tidy was not found.")
     endif()
 endif()
 
-function(olb_configure_target target_name)
+function(gps_configure_target target_name)
     target_compile_features(${target_name} PRIVATE cxx_std_23)
 
     if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -70,11 +70,11 @@ function(olb_configure_target target_name)
         message(WARNING "No strict warning set is defined for ${CMAKE_CXX_COMPILER_ID}.")
     endif()
 
-    if(OLB_WARNINGS_AS_ERRORS)
+    if(GPS_WARNINGS_AS_ERRORS)
         set_property(TARGET ${target_name} PROPERTY COMPILE_WARNING_AS_ERROR ON)
     endif()
 
-    if(OLB_ENABLE_SANITIZERS)
+    if(GPS_ENABLE_SANITIZERS)
         if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
             # vcpkg libraries are not built with MSVC's STL ASan annotations. Keep the
             # annotation ABI consistent while retaining AddressSanitizer instrumentation.
@@ -102,19 +102,19 @@ function(olb_configure_target target_name)
         endif()
     endif()
 
-    if(OLB_ENABLE_CLANG_TIDY)
-        set(olb_clang_tidy_command
-            "${OLB_CLANG_TIDY_EXECUTABLE}"
+    if(GPS_ENABLE_CLANG_TIDY)
+        set(gps_clang_tidy_command
+            "${GPS_CLANG_TIDY_EXECUTABLE}"
             "--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy"
         )
         if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
             # clang-tidy needs the exception model explicitly when replaying an MSVC command.
-            list(APPEND olb_clang_tidy_command "--extra-arg=/EHsc")
+            list(APPEND gps_clang_tidy_command "--extra-arg=/EHsc")
         endif()
 
         set_property(
             TARGET ${target_name}
-            PROPERTY CXX_CLANG_TIDY "${olb_clang_tidy_command}"
+            PROPERTY CXX_CLANG_TIDY "${gps_clang_tidy_command}"
         )
     endif()
 endfunction()

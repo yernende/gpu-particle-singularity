@@ -42,7 +42,7 @@ jobs:
           $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
           $visualStudio = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           & "$visualStudio/Common7/Tools/Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
-          cmake --preset windows-msvc-debug -DOLB_WARNINGS_AS_ERRORS=ON
+          cmake --preset windows-msvc-debug -DGPS_WARNINGS_AS_ERRORS=ON
           cmake --build --preset windows-msvc-debug
           ctest --preset windows-msvc-debug
 
@@ -78,7 +78,7 @@ jobs:
 
       - name: Configure, build, and test
         run: |
-          cmake --preset linux-clang-asan -DOLB_WARNINGS_AS_ERRORS=ON
+          cmake --preset linux-clang-asan -DGPS_WARNINGS_AS_ERRORS=ON
           cmake --build --preset linux-clang-asan
           ctest --preset linux-clang-asan
 
@@ -92,8 +92,8 @@ jobs:
         shell: bash
         run: |
           set +e
-          cmake -S . -B "$RUNNER_TEMP/olb-macos-policy" -G Ninja 2>&1 | tee "$RUNNER_TEMP/olb-macos-policy.log"
+          cmake -S . -B "$RUNNER_TEMP/gps-macos-policy" -G Ninja 2>&1 | tee "$RUNNER_TEMP/gps-macos-policy.log"
           cmake_status=${PIPESTATUS[0]}
           set -e
           test "$cmake_status" -ne 0
-          grep -F "macOS is unsupported: opengl-lesson-bootstrap requires OpenGL 4.6 Core" "$RUNNER_TEMP/olb-macos-policy.log"
+          grep -F "macOS is unsupported: gpu-particle-singularity requires OpenGL 4.6 Core" "$RUNNER_TEMP/gps-macos-policy.log"

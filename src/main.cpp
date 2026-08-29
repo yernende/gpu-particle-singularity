@@ -16,24 +16,25 @@ namespace {
 constexpr int window_width = 1280;
 constexpr int window_height = 720;
 
-int run(const olb::AppOptions& options) {
-    const olb::GlfwSession glfw_session{};
-    olb::Window window = olb::create_window(window_width, window_height, "OpenGL Lesson Bootstrap");
+int run(const gps::AppOptions& options) {
+    const gps::GlfwSession glfw_session{};
+    gps::Window window =
+        gps::create_window(window_width, window_height, "gpu-particle-singularity");
     glfwMakeContextCurrent(window.get());
 
-    const int loaded_version = olb::load_opengl();
-    olb::initialize_opengl_diagnostics(loaded_version);
+    const int loaded_version = gps::load_opengl();
+    gps::initialize_opengl_diagnostics(loaded_version);
 
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
 
-    olb::SmokeTest smoke_test{options.run_mode};
+    gps::SmokeTest smoke_test{options.run_mode};
     glfwSwapInterval(smoke_test.enabled() ? 0 : 1);
 
     // These objects must be destroyed while their OpenGL context is still current.
-    const olb::ImGuiSession imgui{window.get()};
-    olb::TriangleDemo triangle{};
+    const gps::ImGuiSession imgui{window.get()};
+    gps::TriangleDemo triangle{};
 
     while (glfwWindowShouldClose(window.get()) == GLFW_FALSE) {
         glfwPollEvents();
@@ -68,16 +69,16 @@ int run(const olb::AppOptions& options) {
 // NOLINTNEXTLINE(bugprone-exception-escape)
 int main(int argc, char** argv) {
     try {
-        olb::AppOptions options{};
+        gps::AppOptions options{};
         try {
-            options = olb::parse_app_options(argc, argv);
+            options = gps::parse_app_options(argc, argv);
         } catch (const std::invalid_argument& exception) {
-            std::cerr << exception.what() << '\n' << olb::usage();
+            std::cerr << exception.what() << '\n' << gps::usage();
             return 2;
         }
 
         if (options.show_help) {
-            std::cout << olb::usage();
+            std::cout << gps::usage();
             return 0;
         }
 

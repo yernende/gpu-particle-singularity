@@ -2,20 +2,20 @@ cmake_minimum_required(VERSION 3.25)
 
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     message(FATAL_ERROR
-        "macOS is unsupported: opengl-lesson-bootstrap requires OpenGL 4.6 Core and GLSL 460."
+        "macOS is unsupported: gpu-particle-singularity requires OpenGL 4.6 Core and GLSL 460."
     )
 endif()
 
 project(
-    opengl_lesson_bootstrap
+    gpu_particle_singularity
     VERSION 0.1.0
-    DESCRIPTION "Domain-neutral OpenGL lesson starter"
+    DESCRIPTION "GPU particle singularity simulation"
     LANGUAGES C CXX
 )
 
 if(APPLE)
     message(FATAL_ERROR
-        "macOS is unsupported: opengl-lesson-bootstrap requires OpenGL 4.6 Core and GLSL 460."
+        "macOS is unsupported: gpu-particle-singularity requires OpenGL 4.6 Core and GLSL 460."
     )
 endif()
 
@@ -30,9 +30,9 @@ find_package(imgui CONFIG REQUIRED)
 
 add_subdirectory(third_party/glad)
 
-add_executable(opengl_lesson_bootstrap)
+add_executable(gpu_particle_singularity)
 target_sources(
-    opengl_lesson_bootstrap
+    gpu_particle_singularity
     PRIVATE
         src/main.cpp
         src/bootstrap/glfw_context.cpp
@@ -50,35 +50,35 @@ target_sources(
         src/ui/imgui_session.hpp
 )
 set_target_properties(
-    opengl_lesson_bootstrap
+    gpu_particle_singularity
     PROPERTIES
         CXX_EXTENSIONS OFF
-        OUTPUT_NAME opengl-lesson-bootstrap
+        OUTPUT_NAME gpu-particle-singularity
 )
-target_include_directories(opengl_lesson_bootstrap PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_compile_definitions(opengl_lesson_bootstrap PRIVATE GLFW_INCLUDE_NONE)
+target_include_directories(gpu_particle_singularity PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_compile_definitions(gpu_particle_singularity PRIVATE GLFW_INCLUDE_NONE)
 target_link_libraries(
-    opengl_lesson_bootstrap
+    gpu_particle_singularity
     PRIVATE
         glad2
         glfw
         glm::glm
         imgui::imgui
 )
-olb_configure_target(opengl_lesson_bootstrap)
+gps_configure_target(gpu_particle_singularity)
 
 if(BUILD_TESTING)
     find_package(Catch2 3 CONFIG REQUIRED)
 
-    add_executable(opengl_lesson_bootstrap_tests tests/app_options_test.cpp)
-    set_target_properties(opengl_lesson_bootstrap_tests PROPERTIES CXX_EXTENSIONS OFF)
+    add_executable(gpu_particle_singularity_tests tests/app_options_test.cpp)
+    set_target_properties(gpu_particle_singularity_tests PROPERTIES CXX_EXTENSIONS OFF)
     target_include_directories(
-        opengl_lesson_bootstrap_tests
+        gpu_particle_singularity_tests
         PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"
     )
-    target_link_libraries(opengl_lesson_bootstrap_tests PRIVATE Catch2::Catch2WithMain)
-    olb_configure_target(opengl_lesson_bootstrap_tests)
+    target_link_libraries(gpu_particle_singularity_tests PRIVATE Catch2::Catch2WithMain)
+    gps_configure_target(gpu_particle_singularity_tests)
 
     include(Catch)
-    catch_discover_tests(opengl_lesson_bootstrap_tests)
+    catch_discover_tests(gpu_particle_singularity_tests)
 endif()

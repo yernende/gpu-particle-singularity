@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-namespace olb {
+namespace gps {
 
 enum class RunMode {
     interactive,
@@ -20,7 +20,7 @@ struct AppOptions {
 };
 
 [[nodiscard]] inline std::string_view usage() noexcept {
-    return "Usage: opengl-lesson-bootstrap [--smoke-test] [--help]\n"
+    return "Usage: gpu-particle-singularity [--smoke-test] [--help]\n"
            "  --smoke-test  Render three frames and exit.\n"
            "  --help, -h    Show this help message.\n";
 }
@@ -54,4 +54,4 @@ struct AppOptions {
     return parse_app_options(arguments);
 }
 
-} // namespace olb
+} // namespace gps

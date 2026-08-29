@@ -5,7 +5,7 @@
 
 struct GLFWwindow;
 
-namespace olb {
+namespace gps {
 
 class GlfwSession final {
   public:
@@ -29,4 +29,4 @@ using Window = std::unique_ptr<GLFWwindow, WindowDeleter>;
 // A current GLFW context is required because glfwGetProcAddress resolves functions for it.
 [[nodiscard]] int load_opengl();
 
-} // namespace olb
+} // namespace gps

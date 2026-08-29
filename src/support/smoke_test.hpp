@@ -4,7 +4,7 @@
 
 #include <cstddef>
 
-namespace olb {
+namespace gps {
 
 class SmokeTest final {
   public:
@@ -20,4 +20,4 @@ class SmokeTest final {
     std::size_t rendered_frames_{0};
 };
 
-} // namespace olb
+} // namespace gps

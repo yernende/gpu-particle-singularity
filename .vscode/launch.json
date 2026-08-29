@@ -54,7 +54,7 @@
       "type": "command",
       "command": "cmake.launchTargetPath",
       "args": {
-        "targetName": "opengl_lesson_bootstrap"
+        "targetName": "gpu_particle_singularity"
       }
     }
   ]

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <string_view>
 
-namespace olb {
+namespace gps {
 namespace {
 
 #ifndef NDEBUG
@@ -46,4 +46,4 @@ void initialize_opengl_diagnostics(int loaded_version) {
 #endif
 }
 
-} // namespace olb
+} // namespace gps

@@ -3,7 +3,7 @@
 struct GLFWwindow;
 struct ImGuiContext;
 
-namespace olb {
+namespace gps {
 
 class ImGuiSession final {
   public:
@@ -22,4 +22,4 @@ class ImGuiSession final {
     ImGuiContext* context_{nullptr};
 };
 
-} // namespace olb
+} // namespace gps

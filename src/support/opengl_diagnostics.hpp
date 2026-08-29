@@ -1,7 +1,7 @@
 #pragma once
 
-namespace olb {
+namespace gps {
 
 void initialize_opengl_diagnostics(int loaded_version);
 
-} // namespace olb
+} // namespace gps

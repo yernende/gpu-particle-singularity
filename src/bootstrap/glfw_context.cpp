@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace olb {
+namespace gps {
 namespace {
 
 constexpr int multisampling_sample_count = 4;
@@ -77,4 +77,4 @@ int load_opengl() {
     return loaded_version;
 }
 
-} // namespace olb
+} // namespace gps

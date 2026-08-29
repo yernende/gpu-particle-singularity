@@ -5,7 +5,7 @@
 #include <glad/gl.h>
 #include <glm/vec3.hpp>
 
-namespace olb {
+namespace gps {
 
 // Construction, drawing and destruction require a current OpenGL context.
 class TriangleDemo final {
@@ -33,4 +33,4 @@ class TriangleDemo final {
     float scale_{1.0F};
 };
 
-} // namespace olb
+} // namespace gps

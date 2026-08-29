@@ -15,9 +15,9 @@
       "cacheVariables": {
         "BUILD_TESTING": true,
         "CMAKE_EXPORT_COMPILE_COMMANDS": true,
-        "OLB_ENABLE_CLANG_TIDY": false,
-        "OLB_ENABLE_SANITIZERS": false,
-        "OLB_WARNINGS_AS_ERRORS": false,
+        "GPS_ENABLE_CLANG_TIDY": false,
+        "GPS_ENABLE_SANITIZERS": false,
+        "GPS_WARNINGS_AS_ERRORS": false,
         "VCPKG_INSTALLED_DIR": "${sourceDir}/out/vcpkg_installed/${hostSystemName}"
       }
     },
@@ -49,7 +49,7 @@
       "inherits": "windows-msvc-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "OLB_ENABLE_SANITIZERS": true
+        "GPS_ENABLE_SANITIZERS": true
       }
     },
     {
@@ -89,7 +89,7 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
-        "OLB_ENABLE_SANITIZERS": true,
+        "GPS_ENABLE_SANITIZERS": true,
         "VCPKG_TARGET_TRIPLET": "x64-linux"
       }
     }

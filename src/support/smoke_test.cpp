@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace olb {
+namespace gps {
 namespace {
 
 constexpr std::size_t smoke_frame_limit = 3;
@@ -46,4 +46,4 @@ void SmokeTest::verify_complete() const {
     }
 }
 
-} // namespace olb
+} // namespace gps

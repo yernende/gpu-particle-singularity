@@ -6,7 +6,7 @@
 #include <imgui_impl_opengl3.h>
 #include <stdexcept>
 
-namespace olb {
+namespace gps {
 
 ImGuiSession::ImGuiSession(GLFWwindow* window) {
     if (window == nullptr || glfwGetCurrentContext() != window) {
@@ -54,4 +54,4 @@ void ImGuiSession::render() const noexcept {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-} // namespace olb
+} // namespace gps

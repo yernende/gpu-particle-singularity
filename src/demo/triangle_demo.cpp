@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <string_view>
 
-namespace olb {
+namespace gps {
 namespace {
 
 constexpr std::string_view vertex_shader_source = R"glsl(#version 460 core
@@ -68,8 +68,8 @@ TriangleDemo::~TriangleDemo() {
 }
 
 void TriangleDemo::show_controls() noexcept {
-    ImGui::Begin("Bootstrap controls");
-    ImGui::TextUnformatted("This triangle is a disposable lesson starting point.");
+    ImGui::Begin("gpu-particle-singularity");
+    ImGui::TextUnformatted("This temporary triangle verifies the renamed project baseline.");
     ImGui::Separator();
     ImGui::SliderFloat("Triangle scale", &scale_, 0.25F, 1.25F);
     ImGui::ColorEdit3("Triangle color", glm::value_ptr(tint_));
@@ -95,4 +95,4 @@ void TriangleDemo::release_geometry() noexcept {
     }
 }
 
-} // namespace olb
+} // namespace gps

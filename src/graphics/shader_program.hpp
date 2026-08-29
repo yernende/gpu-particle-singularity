@@ -3,7 +3,7 @@
 #include <glad/gl.h>
 #include <string_view>
 
-namespace olb {
+namespace gps {
 
 // A current OpenGL context must outlive every shader program.
 class ShaderProgram final {
@@ -24,4 +24,4 @@ class ShaderProgram final {
     GLuint program_{0};
 };
 
-} // namespace olb
+} // namespace gps
