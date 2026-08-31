@@ -443,11 +443,21 @@ longer updates individual particle positions.
 ### Generalize shader-program construction
 
 The starter's shader wrapper currently assumes exactly one vertex shader and one fragment shader.
-Represent a stage and its source explicitly:
+Represent the finite set of OpenGL shader stages with a scoped enum, then pair a stage with its
+source explicitly:
 
 ```cpp
+enum class ShaderStage : GLenum {
+    vertex = GL_VERTEX_SHADER,
+    tessellation_control = GL_TESS_CONTROL_SHADER,
+    tessellation_evaluation = GL_TESS_EVALUATION_SHADER,
+    geometry = GL_GEOMETRY_SHADER,
+    fragment = GL_FRAGMENT_SHADER,
+    compute = GL_COMPUTE_SHADER,
+};
+
 struct ShaderStageSource {
-    GLenum stage;
+    ShaderStage stage;
     std::string_view source;
 };
 ```
@@ -458,23 +468,25 @@ Construct a program from a span of stages:
 ShaderProgram(std::span<const ShaderStageSource> stages);
 ```
 
-- [ ] Preserve the existing RAII ownership of the OpenGL program.
-- [ ] Reject an empty stage list.
-- [ ] Reject an empty shader source.
-- [ ] Compile every supplied stage separately.
-- [ ] Include a readable stage name in compilation errors.
-- [ ] Attach all successfully compiled shaders.
-- [ ] Link exactly once.
-- [ ] Include the complete program log in linking errors.
-- [ ] Delete every temporary shader after successful linking.
-- [ ] Delete every already-created shader if a later compilation fails.
-- [ ] Delete the program if linking fails.
-- [ ] Keep copying and movement intentionally disabled unless correct movement is needed.
-- [ ] Update the graphics program call site to pass vertex and fragment stages.
-- [ ] Add the compute program call site with one compute stage.
-- [ ] Do not add shader reflection, uniform caching, includes, or hot reload.
+- [x] Use a scoped enum for the valid OpenGL shader stages.
+- [x] Preserve the existing RAII ownership of the OpenGL program.
+- [x] Reject an empty stage list.
+- [x] Reject an empty shader source.
+- [x] Compile every supplied stage separately.
+- [x] Include a readable stage name in compilation errors.
+- [x] Attach all successfully compiled shaders.
+- [x] Link exactly once.
+- [x] Include the complete program log in linking errors.
+- [x] Delete every temporary shader after successful linking.
+- [x] Delete every already-created shader if a later compilation fails.
+- [x] Delete the program if linking fails.
+- [x] Keep copying and movement intentionally disabled unless correct movement is needed.
+- [x] Update the graphics program call site to pass vertex and fragment stages.
+- [x] Do not add shader reflection, uniform caching, includes, or hot reload.
 
 ### Add the first compute shader
+
+- [x] Add the compute program call site with one compute stage.
 
 Use a one-dimensional work group:
 
@@ -495,13 +507,13 @@ particles[index].positionAge.xyz +=
     particles[index].velocityLifetime.xyz * uDeltaTime;
 ```
 
-- [ ] Bind the particle SSBO as writable in the compute shader.
-- [ ] Use the same explicit binding index as the rendering shader.
-- [ ] Add `uParticleCount` as an unsigned integer uniform.
-- [ ] Add `uDeltaTime` as a float uniform.
-- [ ] Guard every invocation whose global index is outside the active particle count.
-- [ ] Do not read or write another particle from an invocation.
-- [ ] Validate all required compute uniform locations.
+- [x] Declare the particle SSBO as writable in the compute shader.
+- [x] Use the same explicit binding index as the rendering shader.
+- [x] Add `uParticleCount` as an unsigned integer uniform.
+- [x] Add `uDeltaTime` as a float uniform.
+- [x] Guard every invocation whose global index is outside the active particle count.
+- [x] Do not read or write another particle from an invocation.
+- [x] Validate all required compute uniform locations.
 
 ### Dispatch enough work groups
 
@@ -533,18 +545,21 @@ Examples for `L = 256`:
 | 65,536 | 256 | 65,536 |
 | 65,537 | 257 | 65,792 |
 
-- [ ] Add a small `ceil_div` or dispatch-count helper.
-- [ ] Add tests for `0`, `1`, `255`, `256`, `257`, `65,536`, and `65,537`.
-- [ ] Bind the particle SSBO before dispatch.
-- [ ] Set compute uniforms before dispatch.
-- [ ] Call `glDispatchCompute(groupCount, 1, 1)`.
-- [ ] Immediately call `glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)` after dispatch.
-- [ ] Render from the same SSBO after the barrier.
-- [ ] Test a particle count that is not divisible by `256`.
-- [ ] Confirm that guard invocations do not access outside the buffer.
+- [x] Add a small dispatch-count helper that rejects a zero local size.
+- [x] Add tests for `0`, `1`, `255`, `256`, `257`, `65,536`, and `65,537`.
+- [x] Bind the particle SSBO before dispatch.
+- [x] Set compute uniforms before dispatch.
+- [x] Call `glDispatchCompute(groupCount, 1, 1)`.
+- [x] Immediately call `glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)` after dispatch.
+- [x] Render from the same SSBO after the barrier.
+- [x] Use `4,097` particles by default so regular and smoke runs exercise a partial work group.
+- [x] Keep the bounds guard before the compute shader's first particle-buffer access.
 
 For this design, `GL_SHADER_STORAGE_BARRIER_BIT` is the relevant barrier because both the compute
 shader and vertex shader access the buffer through shader-storage blocks.
+
+The caller supplies a bounded wall-clock delta. This keeps dispatch and the temporary timing policy
+as separate learning steps while leaving the fixed-step accumulator for Feature 5.
 
 ### Use a bounded temporary frame delta
 
@@ -556,20 +571,21 @@ const double frame_delta =
     std::clamp(now - previous_time, 0.0, 1.0 / 30.0);
 ```
 
-- [ ] Update `previous_time` every frame, including paused or minimized frames.
-- [ ] Clamp negative deltas to zero.
-- [ ] Clamp abnormally large deltas.
-- [ ] Do not use frame number as simulated time.
-- [ ] Keep the final fixed-step accumulator for Feature 5.
+- [x] Update `previous_time` before any framebuffer-size or future pause gate, so minimized or
+      paused frames cannot accumulate elapsed time.
+- [x] Clamp negative deltas to zero.
+- [x] Clamp abnormally large deltas to `1 / 30` second.
+- [x] Do not use frame number as simulated time.
+- [x] Keep the final fixed-step accumulator for Feature 5.
 
 ### Understanding check
 
-- [ ] Explain the difference between dispatching a compute program and issuing a draw call.
-- [ ] Explain local invocation ID, work-group ID, and global invocation ID.
-- [ ] Explain why extra invocations are normal when the count is not divisible by the local size.
-- [ ] Explain why the bounds guard belongs inside the compute shader.
-- [ ] Explain what data hazard the memory barrier resolves.
-- [ ] Explain why no ping-pong buffer is required while each invocation accesses only its own particle.
+- [x] Explain the difference between dispatching a compute program and issuing a draw call.
+- [x] Explain local invocation ID, work-group ID, and global invocation ID.
+- [x] Explain why extra invocations are normal when the count is not divisible by the local size.
+- [x] Explain why the bounds guard belongs inside the compute shader.
+- [x] Explain what data hazard the memory barrier resolves.
+- [x] Explain why no ping-pong buffer is required while each invocation accesses only its own particle.
 
 ### Acceptance check
 

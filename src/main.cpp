@@ -6,6 +6,7 @@
 #include "ui/imgui_session.hpp"
 
 #include <GLFW/glfw3.h>
+#include <algorithm>
 #include <exception>
 #include <glad/gl.h>
 #include <iostream>
@@ -15,6 +16,7 @@ namespace {
 
 constexpr int window_width = 1280;
 constexpr int window_height = 720;
+constexpr double maximum_temporary_frame_delta_seconds = 1.0 / 30.0;
 
 int run(const gps::AppOptions& options) {
     const gps::GlfwSession glfw_session{};
@@ -37,10 +39,16 @@ int run(const gps::AppOptions& options) {
     // These objects must be destroyed while their OpenGL context is still current.
     const gps::ImGuiSession imgui{window.get()};
     const gps::GpsDemo particle_demo{};
+    double previous_time = glfwGetTime();
 
     while (glfwWindowShouldClose(window.get()) == GLFW_FALSE) {
         glfwPollEvents();
         imgui.begin_frame();
+
+        const double now = glfwGetTime();
+        const double frame_delta =
+            std::clamp(now - previous_time, 0.0, maximum_temporary_frame_delta_seconds);
+        previous_time = now;
 
         int framebuffer_width = 0;
         int framebuffer_height = 0;
@@ -49,7 +57,8 @@ int run(const gps::AppOptions& options) {
             glViewport(0, 0, framebuffer_width, framebuffer_height);
             glClearColor(0.025F, 0.035F, 0.055F, 1.0F);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            particle_demo.draw(framebuffer_width, framebuffer_height);
+            particle_demo.draw(framebuffer_width, framebuffer_height,
+                               static_cast<float>(frame_delta));
         }
         imgui.render();
 

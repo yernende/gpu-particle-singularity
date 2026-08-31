@@ -4,9 +4,54 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace gps {
 namespace {
+
+class ShaderObject final {
+  public:
+    explicit ShaderObject(GLuint shader) noexcept : shader_{shader} {}
+
+    ~ShaderObject() {
+        if (shader_ != 0) {
+            glDeleteShader(shader_);
+        }
+    }
+
+    ShaderObject(const ShaderObject&) = delete;
+    ShaderObject& operator=(const ShaderObject&) = delete;
+
+    ShaderObject(ShaderObject&& other) noexcept : shader_{std::exchange(other.shader_, 0)} {}
+    ShaderObject& operator=(ShaderObject&&) = delete;
+
+    [[nodiscard]] GLuint id() const noexcept {
+        return shader_;
+    }
+
+  private:
+    GLuint shader_{0};
+};
+
+[[nodiscard]] std::string_view shader_stage_name(ShaderStage stage) noexcept {
+    switch (stage) {
+    case ShaderStage::vertex:
+        return "vertex";
+    case ShaderStage::tessellation_control:
+        return "tessellation control";
+    case ShaderStage::tessellation_evaluation:
+        return "tessellation evaluation";
+    case ShaderStage::geometry:
+        return "geometry";
+    case ShaderStage::fragment:
+        return "fragment";
+    case ShaderStage::compute:
+        return "compute";
+    default:
+        return "unknown-stage";
+    }
+}
 
 std::string shader_log(GLuint shader) {
     GLint log_length = 0;
@@ -36,25 +81,25 @@ std::string program_log(GLuint program) {
     return log;
 }
 
-GLuint compile_shader(GLenum type, std::string_view source) {
-    const GLuint shader = glCreateShader(type);
-    if (shader == 0) {
-        throw std::runtime_error{"OpenGL failed to allocate a shader object."};
+[[nodiscard]] ShaderObject compile_shader(const ShaderStageSource& stage) {
+    ShaderObject shader{glCreateShader(std::to_underlying(stage.stage))};
+    if (shader.id() == 0) {
+        throw std::runtime_error{"OpenGL failed to create the " +
+                                 std::string{shader_stage_name(stage.stage)} + " shader object."};
     }
 
-    const GLchar* source_data = source.data();
+    const GLchar* source_data = stage.source.data();
     // Keep the OpenGL API width visible at this narrowing boundary.
     // NOLINTNEXTLINE(modernize-use-auto)
-    const GLint source_length = static_cast<GLint>(source.size());
-    glShaderSource(shader, 1, &source_data, &source_length);
-    glCompileShader(shader);
+    const GLint source_length = static_cast<GLint>(stage.source.size());
+    glShaderSource(shader.id(), 1, &source_data, &source_length);
+    glCompileShader(shader.id());
 
     GLint compiled = GL_FALSE;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+    glGetShaderiv(shader.id(), GL_COMPILE_STATUS, &compiled);
     if (compiled != GL_TRUE) {
-        const std::string log = shader_log(shader);
-        glDeleteShader(shader);
-        throw std::runtime_error{"Shader compilation failed:\n" + log};
+        throw std::runtime_error{std::string{shader_stage_name(stage.stage)} +
+                                 " shader compilation failed:\n" + shader_log(shader.id())};
     }
 
     return shader;
@@ -62,23 +107,33 @@ GLuint compile_shader(GLenum type, std::string_view source) {
 
 } // namespace
 
-// The names carry fixed shader-stage roles; strong wrapper types would add noise here.
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-ShaderProgram::ShaderProgram(std::string_view vertex_source, std::string_view fragment_source) {
-    GLuint vertex_shader = 0;
-    GLuint fragment_shader = 0;
+ShaderProgram::ShaderProgram(std::span<const ShaderStageSource> stages) {
+    if (stages.empty()) {
+        throw std::invalid_argument{"A shader program requires at least one stage."};
+    }
+
+    for (const ShaderStageSource& stage : stages) {
+        if (stage.source.empty()) {
+            throw std::invalid_argument{std::string{shader_stage_name(stage.stage)} +
+                                        " shader source must not be empty."};
+        }
+    }
+
+    std::vector<ShaderObject> shaders;
+    shaders.reserve(stages.size());
+    for (const ShaderStageSource& stage : stages) {
+        shaders.push_back(compile_shader(stage));
+    }
 
     try {
-        vertex_shader = compile_shader(GL_VERTEX_SHADER, vertex_source);
-        fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fragment_source);
-
         program_ = glCreateProgram();
         if (program_ == 0) {
             throw std::runtime_error{"OpenGL failed to allocate a program object."};
         }
 
-        glAttachShader(program_, vertex_shader);
-        glAttachShader(program_, fragment_shader);
+        for (const ShaderObject& shader : shaders) {
+            glAttachShader(program_, shader.id());
+        }
         glLinkProgram(program_);
 
         GLint linked = GL_FALSE;
@@ -91,17 +146,8 @@ ShaderProgram::ShaderProgram(std::string_view vertex_source, std::string_view fr
             glDeleteProgram(program_);
             program_ = 0;
         }
-        if (fragment_shader != 0) {
-            glDeleteShader(fragment_shader);
-        }
-        if (vertex_shader != 0) {
-            glDeleteShader(vertex_shader);
-        }
         throw;
     }
-
-    glDeleteShader(fragment_shader);
-    glDeleteShader(vertex_shader);
 }
 
 ShaderProgram::~ShaderProgram() {

@@ -8,7 +8,7 @@
 
 namespace gps {
 struct ParticleInitializationSettings {
-    std::size_t particle_count = 4'096;
+    std::size_t particle_count = 4'097;
     std::uint32_t seed = 12'345U;
     float inner_radius = 1.4F;
     float outer_radius = 3.2F;

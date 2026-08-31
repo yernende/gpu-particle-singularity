@@ -46,6 +46,7 @@ target_sources(
         src/graphics/shader_program.hpp
         src/simulation/particle_initializer.cpp
         src/simulation/particle_initializer.hpp
+        src/simulation/work_group_count.hpp
         src/simulation/xorshift32.cpp
         src/simulation/xorshift32.hpp
         src/support/app_options.hpp
@@ -81,8 +82,10 @@ if(BUILD_TESTING)
         gpu_particle_singularity_tests
         tests/app_options_test.cpp
         tests/particle_initializer_test.cpp
+        tests/work_group_count_test.cpp
         src/simulation/particle_initializer.cpp
         src/simulation/particle_initializer.hpp
+        src/simulation/work_group_count.hpp
         src/simulation/xorshift32.cpp
         src/simulation/xorshift32.hpp
     )
