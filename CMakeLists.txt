@@ -37,10 +37,17 @@ target_sources(
         src/main.cpp
         src/bootstrap/glfw_context.cpp
         src/bootstrap/glfw_context.hpp
-        src/demo/triangle_demo.cpp
-        src/demo/triangle_demo.hpp
+        src/demo/gps_demo.cpp
+        src/demo/gps_demo.hpp
+        src/graphics/particle_buffer.cpp
+        src/graphics/particle_buffer.hpp
+        src/graphics/particle_gpu.hpp
         src/graphics/shader_program.cpp
         src/graphics/shader_program.hpp
+        src/simulation/particle_initializer.cpp
+        src/simulation/particle_initializer.hpp
+        src/simulation/xorshift32.cpp
+        src/simulation/xorshift32.hpp
         src/support/app_options.hpp
         src/support/opengl_diagnostics.cpp
         src/support/opengl_diagnostics.hpp
@@ -70,13 +77,26 @@ gps_configure_target(gpu_particle_singularity)
 if(BUILD_TESTING)
     find_package(Catch2 3 CONFIG REQUIRED)
 
-    add_executable(gpu_particle_singularity_tests tests/app_options_test.cpp)
+    add_executable(
+        gpu_particle_singularity_tests
+        tests/app_options_test.cpp
+        tests/particle_initializer_test.cpp
+        src/simulation/particle_initializer.cpp
+        src/simulation/particle_initializer.hpp
+        src/simulation/xorshift32.cpp
+        src/simulation/xorshift32.hpp
+    )
     set_target_properties(gpu_particle_singularity_tests PROPERTIES CXX_EXTENSIONS OFF)
     target_include_directories(
         gpu_particle_singularity_tests
         PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"
     )
-    target_link_libraries(gpu_particle_singularity_tests PRIVATE Catch2::Catch2WithMain)
+    target_link_libraries(
+        gpu_particle_singularity_tests
+        PRIVATE
+            Catch2::Catch2WithMain
+            glm::glm
+    )
     gps_configure_target(gpu_particle_singularity_tests)
 
     include(Catch)

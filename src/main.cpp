@@ -1,5 +1,5 @@
 #include "bootstrap/glfw_context.hpp"
-#include "demo/triangle_demo.hpp"
+#include "demo/gps_demo.hpp"
 #include "support/app_options.hpp"
 #include "support/opengl_diagnostics.hpp"
 #include "support/smoke_test.hpp"
@@ -27,6 +27,8 @@ int run(const gps::AppOptions& options) {
 
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glDisable(GL_BLEND);
     glDisable(GL_CULL_FACE);
 
     gps::SmokeTest smoke_test{options.run_mode};
@@ -34,21 +36,21 @@ int run(const gps::AppOptions& options) {
 
     // These objects must be destroyed while their OpenGL context is still current.
     const gps::ImGuiSession imgui{window.get()};
-    gps::TriangleDemo triangle{};
+    const gps::GpsDemo particle_demo{};
 
     while (glfwWindowShouldClose(window.get()) == GLFW_FALSE) {
         glfwPollEvents();
         imgui.begin_frame();
-        triangle.show_controls();
 
         int framebuffer_width = 0;
         int framebuffer_height = 0;
         glfwGetFramebufferSize(window.get(), &framebuffer_width, &framebuffer_height);
-        glViewport(0, 0, framebuffer_width, framebuffer_height);
-        glClearColor(0.025F, 0.035F, 0.055F, 1.0F);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        triangle.draw();
+        if (framebuffer_width > 0 && framebuffer_height > 0) {
+            glViewport(0, 0, framebuffer_width, framebuffer_height);
+            glClearColor(0.025F, 0.035F, 0.055F, 1.0F);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            particle_demo.draw(framebuffer_width, framebuffer_height);
+        }
         imgui.render();
 
         smoke_test.frame_rendered();

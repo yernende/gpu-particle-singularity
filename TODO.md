@@ -95,6 +95,8 @@ Recommended initial constants:
 ```text
 Initial debug particle count:       4,096
 Finished default particle count:   65,536
+Initial random seed:                12,345
+Initial orbital speed:                0.35
 Compute local size X:                 256
 SSBO binding index:                     0
 Fixed simulation step:             1 / 120 s
@@ -175,7 +177,7 @@ rg -n --glob '!third_party/glad/**' \
 - [x] Explain why project renaming must include CMake, source code, CI, and editor configuration.
 - [x] Explain why `third_party/glad` should not be modified during an application rename.
 - [x] Explain why OpenGL-owning objects must die while their context is still current.
-- [ ] Explain the current frame order from event polling through buffer swap.
+- [x] Explain the current frame order from event polling through buffer swap.
 
 ### Acceptance check
 
@@ -198,10 +200,10 @@ Buffer Object.
 
 ### Define the CPU/GPU particle layout
 
-Use one deliberately aligned representation shared conceptually by C++ and GLSL:
+Use one explicit 48-byte representation shared conceptually by C++ and GLSL:
 
 ```cpp
-struct alignas(16) ParticleGpu {
+struct ParticleGpu {
     glm::vec4 position_age;
     glm::vec4 velocity_lifetime;
     glm::uvec4 random_state;
@@ -233,14 +235,14 @@ layout(std430, binding = 0) readonly buffer ParticleBuffer {
 };
 ```
 
-- [ ] Add `ParticleGpu` in a small header with no OpenGL object ownership.
-- [ ] Use only fixed-width integer types where C++ data crosses into GLSL.
-- [ ] Do not place C++ `bool` values in the shared structure.
-- [ ] Add `static_assert(std::is_standard_layout_v<ParticleGpu>)`.
-- [ ] Add `static_assert(std::is_trivially_copyable_v<ParticleGpu>)`.
-- [ ] Add `static_assert(alignof(ParticleGpu) == 16)`.
-- [ ] Add `static_assert(sizeof(ParticleGpu) == 48)`.
-- [ ] Assert that the three field offsets are `0`, `16`, and `32` bytes.
+- [x] Add `ParticleGpu` in a small header with no OpenGL object ownership.
+- [x] Use only fixed-width integer types where C++ data crosses into GLSL.
+- [x] Do not place C++ `bool` values in the shared structure.
+- [x] Add `static_assert(std::is_standard_layout_v<ParticleGpu>)`.
+- [x] Add `static_assert(std::is_trivially_copyable_v<ParticleGpu>)`.
+- [x] ~Add `static_assert(alignof(ParticleGpu) == 16)`~. I decided that I don't need this
+- [x] Add `static_assert(sizeof(ParticleGpu) == 48)`.
+- [x] Assert that the three field offsets are `0`, `16`, and `32` bytes.
 - [ ] Add a Catch2 test that documents the expected layout.
 
 The explicit checks matter because `std430` and C++ must agree. A layout mismatch usually produces
@@ -248,7 +250,8 @@ plausible-looking garbage, which is the GPU's preferred form of emotional abuse.
 
 ### Generate a deterministic annular cloud on the CPU
 
-Let `u1`, `u2`, and `u3` be independent pseudo-random values in `[0, 1)`.
+Let `u1` through `u5` be successive pseudo-random values in `[0, 1)`. The first three values
+determine position, while `u4` and `u5` determine lifetime and initial age.
 
 Sample the angle:
 
@@ -303,30 +306,51 @@ $$
 \mathbf v_0 = v_{\text{orbit}}\mathbf t
 $$
 
-- [ ] Add a small deterministic 32-bit random generator or hash-based generator.
-- [ ] Guarantee that every stored random state is nonzero.
-- [ ] Convert random integers to `[0, 1)` without `std::uniform_real_distribution` so the random
+Sample lifetime and stagger the initial age:
+
+$$
+L = L_{\min} + u_4(L_{\max} - L_{\min})
+$$
+
+$$
+a = L u_5
+$$
+
+One `Xorshift32` stream generates the complete array. A zero user seed is valid: it is replaced by
+a fixed nonzero internal state because zero is an absorbing state for xorshift32. After generating
+each particle, the current nonzero state is stored in `random_state.x` for future GPU respawning.
+
+- [x] Add a small deterministic 32-bit random generator or hash-based generator.
+- [x] Guarantee that every stored random state is nonzero.
+- [x] Accept a zero user seed by replacing the RNG's initial state with a fixed nonzero fallback.
+- [x] Convert random integers to `[0, 1)` without `std::uniform_real_distribution` so the random
       sequence itself is repeatable across standard-library implementations.
 
 Exact bitwise equality of final positions across operating systems is not required because
 trigonometric implementations may differ slightly. `Deterministic reset` here means that the same
 build, settings, and seed reproduce the same initial state.
-- [ ] Add an initialization settings structure with particle count, seed, radii, thickness,
+- [x] Add an initialization settings structure with particle count, seed, radii, thickness,
       lifetime range, and initial orbital speed.
-- [ ] Reject an inner radius less than or equal to zero.
-- [ ] Reject an outer radius smaller than the inner radius.
-- [ ] Reject a negative half-thickness.
-- [ ] Reject a non-positive minimum lifetime.
-- [ ] Reject a maximum lifetime smaller than the minimum lifetime.
-- [ ] Generate exactly the requested number of particles.
-- [ ] Initialize every position inside the requested annulus and vertical range.
-- [ ] Initialize every velocity to a finite value.
-- [ ] Initialize lifetime inside the requested range.
-- [ ] Stagger initial age in `[0, lifetime)` so the future emitter does not respawn all particles
+- [x] Reject an inner radius less than or equal to zero.
+- [x] Reject an outer radius smaller than the inner radius.
+- [x] Reject a negative half-thickness.
+- [x] Reject a non-positive minimum lifetime.
+- [x] Reject a maximum lifetime smaller than the minimum lifetime.
+- [x] Reject non-finite radii, thickness, lifetime bounds, and initial orbital speed.
+- [x] Generate exactly the requested number of particles.
+- [x] Treat a requested count of zero as a valid empty result.
+- [x] Initialize every position inside the requested annulus and vertical range.
+- [x] Initialize every velocity as a finite tangential vector around the world Y axis.
+- [x] Initialize lifetime inside the requested range.
+- [x] Stagger initial age in `[0, lifetime)` so the future emitter does not respawn all particles
       simultaneously.
-- [ ] Add a test that the same settings and seed produce the same particle fields.
-- [ ] Add a test that a different seed changes at least one particle.
-- [ ] Add tests for radius, thickness, age, lifetime, finiteness, and nonzero random state.
+- [x] Initialize `random_state.yzw` to zero.
+- [x] Generate the CPU array while constructing `GpsDemo`; after `ParticleBuffer` copies its bytes
+      into immutable storage, do not retain the temporary CPU vector.
+- [x] Add a test that the same settings and seed produce the same particle fields.
+- [x] Add a test that a different seed changes at least one particle.
+- [x] Add tests for exact count, radius, thickness, tangential velocity, age, lifetime, finiteness,
+      nonzero persistent state, and zeroed reserved state.
 
 ### Upload the particle array to an SSBO
 
@@ -344,20 +368,22 @@ $$
 
 That is exactly `3 MiB`.
 
-- [ ] Add a small RAII owner for the particle buffer.
-- [ ] Create the buffer with `glCreateBuffers`.
-- [ ] Treat a returned object name of `0` as allocation failure.
-- [ ] Check multiplication for overflow before computing the byte count.
-- [ ] Check that the byte count fits `GLsizeiptr`.
-- [ ] Query `GL_MAX_SHADER_STORAGE_BLOCK_SIZE` with `glGetInteger64v`.
-- [ ] Reject a requested buffer larger than the implementation limit with a clear message.
-- [ ] Allocate immutable storage with `glNamedBufferStorage`.
-- [ ] Include `GL_DYNAMIC_STORAGE_BIT` because reset and recreation will later use buffer updates.
-- [ ] Bind the object to SSBO binding index `0` with `glBindBufferBase`.
-- [ ] Delete the buffer in the RAII owner's destructor.
-- [ ] Delete copying for the owner.
-- [ ] Either implement correct move semantics or keep movement deleted and store the owner directly.
-- [ ] Ensure the owner is destroyed before the OpenGL context.
+- [x] Add a small RAII owner for the particle buffer.
+- [x] Reject an empty array because OpenGL immutable buffer storage requires a positive byte count.
+- [x] Create the buffer with `glCreateBuffers`.
+- [x] Treat a returned object name of `0` as allocation failure.
+- [x] Check multiplication for overflow before computing the byte count.
+- [x] Check that the byte count fits `GLsizeiptr`.
+- [x] Query `GL_MAX_SHADER_STORAGE_BLOCK_SIZE` with `glGetInteger64v`.
+- [x] Reject a requested buffer larger than the implementation limit with a clear message.
+- [x] Allocate immutable storage with `glNamedBufferStorage`.
+- [x] Include `GL_DYNAMIC_STORAGE_BIT` so reset can later replace the contents with
+      `glNamedBufferSubData` without reallocating storage.
+- [x] Bind the object to SSBO binding index `0` with `glBindBufferBase`.
+- [x] Delete the buffer in the RAII owner's destructor.
+- [x] Delete copying for the owner.
+- [x] Keep movement deleted and store the owner directly in `GpsDemo`.
+- [x] Construct `GpsDemo` inside the OpenGL context's lifetime so its owner is also destroyed there.
 
 ### Render particles as diagnostic points
 
@@ -368,32 +394,32 @@ uint particleIndex = uint(gl_VertexID);
 Particle particle = particles[particleIndex];
 ```
 
-- [ ] Create and bind an otherwise empty VAO; a VAO is still required in the core profile.
-- [ ] Add a fixed model, view, and projection path.
-- [ ] Skip rendering when the framebuffer width or height is zero.
-- [ ] Read the particle by `gl_VertexID` in the vertex shader.
-- [ ] Transform `positionAge.xyz` with view and projection matrices.
-- [ ] Set a small diagnostic `gl_PointSize`.
-- [ ] Enable `GL_PROGRAM_POINT_SIZE`.
-- [ ] Use `gl_PointCoord` in the fragment shader.
-- [ ] Convert the square point primitive into a circular mark with a radial test.
-- [ ] Discard fragments outside the unit circle.
-- [ ] Keep points opaque for this feature; blending comes later.
-- [ ] Validate every required uniform location.
-- [ ] Draw with `glDrawArrays(GL_POINTS, 0, particleCount)`.
-- [ ] Check that `particleCount` fits `GLsizei` before drawing.
-- [ ] Remove `TriangleDemo` only after the static cloud renders successfully.
-- [ ] Remove the triangle files from CMake.
-- [ ] Keep the old triangle commit available as a working reference in Git history.
+- [x] Create and bind an otherwise empty VAO; a VAO is still required in the core profile.
+- [x] Add a fixed model, view, and projection path.
+- [x] Skip rendering when the framebuffer width or height is zero.
+- [x] Read the particle by `gl_VertexID` in the vertex shader.
+- [x] Transform `positionAge.xyz` with view and projection matrices.
+- [x] Set a small diagnostic `gl_PointSize`.
+- [x] Enable `GL_PROGRAM_POINT_SIZE`.
+- [x] Use `gl_PointCoord` in the fragment shader.
+- [x] Convert the square point primitive into a circular mark with a radial test.
+- [x] Discard fragments outside the unit circle.
+- [x] Keep points opaque for this feature; blending comes later.
+- [x] Validate every required uniform location.
+- [x] Draw with `glDrawArrays(GL_POINTS, 0, particleCount)`.
+- [x] Check that `particleCount` fits `GLsizei` before drawing.
+- [x] Remove `TriangleDemo` only after the static cloud renders successfully.
+- [x] Remove the triangle files from CMake.
+- [x] Keep the old triangle commit available as a working reference in Git history.
 
 ### Understanding check
 
-- [ ] Explain the difference between a VBO used as vertex attributes and an SSBO read manually.
-- [ ] Explain what `layout(std430)` controls.
-- [ ] Explain why C++ and GLSL field offsets must match exactly.
-- [ ] Explain why an empty VAO is required even though no vertex attributes are used.
-- [ ] Explain how `gl_VertexID` maps one draw vertex to one particle.
-- [ ] Explain why uniform-by-area annulus sampling uses a square root.
+- [x] Explain the difference between a VBO used as vertex attributes and an SSBO read manually.
+- [x] Explain what `layout(std430)` controls.
+- [x] Explain why C++ and GLSL field offsets must match exactly.
+- [x] Explain why an empty VAO is required even though no vertex attributes are used.
+- [x] Explain how `gl_VertexID` maps one draw vertex to one particle.
+- [x] Explain why uniform-by-area annulus sampling uses a square root.
 
 ### Acceptance check
 
