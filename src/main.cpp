@@ -38,16 +38,19 @@ int run(const gps::AppOptions& options) {
 
     // These objects must be destroyed while their OpenGL context is still current.
     const gps::ImGuiSession imgui{window.get()};
-    const gps::GpsDemo particle_demo{};
+    gps::GpsDemo particle_demo{};
     double previous_time = glfwGetTime();
 
     while (glfwWindowShouldClose(window.get()) == GLFW_FALSE) {
         glfwPollEvents();
         imgui.begin_frame();
 
+        const gps::ParticleControlEvents control_events = particle_demo.draw_controls();
         const double now = glfwGetTime();
         const double frame_delta =
-            std::clamp(now - previous_time, 0.0, maximum_temporary_frame_delta_seconds);
+            control_events.particles_reset
+                ? 0.0
+                : std::clamp(now - previous_time, 0.0, maximum_temporary_frame_delta_seconds);
         previous_time = now;
 
         int framebuffer_width = 0;

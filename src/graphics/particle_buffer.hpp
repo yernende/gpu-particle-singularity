@@ -1,10 +1,7 @@
 #pragma once
 
-#include "graphics/particle_gpu.hpp"
-
 #include <cstddef>
 #include <glad/gl.h>
-#include <span>
 
 namespace gps {
 
@@ -13,7 +10,7 @@ inline constexpr GLuint particle_buffer_binding_index = 0;
 // Construction and destruction require a current OpenGL context.
 class ParticleBuffer final {
   public:
-    explicit ParticleBuffer(std::span<const ParticleGpu> particles);
+    explicit ParticleBuffer(std::size_t particle_count);
     ~ParticleBuffer();
 
     ParticleBuffer(const ParticleBuffer&) = delete;

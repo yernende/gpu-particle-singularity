@@ -44,11 +44,9 @@ target_sources(
         src/graphics/particle_gpu.hpp
         src/graphics/shader_program.cpp
         src/graphics/shader_program.hpp
-        src/simulation/particle_initializer.cpp
-        src/simulation/particle_initializer.hpp
+        src/simulation/particle_settings.cpp
+        src/simulation/particle_settings.hpp
         src/simulation/work_group_count.hpp
-        src/simulation/xorshift32.cpp
-        src/simulation/xorshift32.hpp
         src/support/app_options.hpp
         src/support/opengl_diagnostics.cpp
         src/support/opengl_diagnostics.hpp
@@ -81,13 +79,11 @@ if(BUILD_TESTING)
     add_executable(
         gpu_particle_singularity_tests
         tests/app_options_test.cpp
-        tests/particle_initializer_test.cpp
+        tests/particle_settings_test.cpp
         tests/work_group_count_test.cpp
-        src/simulation/particle_initializer.cpp
-        src/simulation/particle_initializer.hpp
+        src/simulation/particle_settings.cpp
+        src/simulation/particle_settings.hpp
         src/simulation/work_group_count.hpp
-        src/simulation/xorshift32.cpp
-        src/simulation/xorshift32.hpp
     )
     set_target_properties(gpu_particle_singularity_tests PROPERTIES CXX_EXTENSIONS OFF)
     target_include_directories(
@@ -98,7 +94,6 @@ if(BUILD_TESTING)
         gpu_particle_singularity_tests
         PRIVATE
             Catch2::Catch2WithMain
-            glm::glm
     )
     gps_configure_target(gpu_particle_singularity_tests)
 

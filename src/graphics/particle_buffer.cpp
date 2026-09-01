@@ -1,5 +1,7 @@
 #include "graphics/particle_buffer.hpp"
 
+#include "graphics/particle_gpu.hpp"
+
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -42,8 +44,7 @@ void validate_implementation_limit(GLsizeiptr byte_count) {
 
 } // namespace
 
-ParticleBuffer::ParticleBuffer(std::span<const ParticleGpu> particles)
-    : particle_count_{particles.size()} {
+ParticleBuffer::ParticleBuffer(std::size_t particle_count) : particle_count_{particle_count} {
     const GLsizeiptr byte_count = particle_buffer_size(particle_count_);
     validate_implementation_limit(byte_count);
 
@@ -52,7 +53,7 @@ ParticleBuffer::ParticleBuffer(std::span<const ParticleGpu> particles)
         throw std::runtime_error{"OpenGL failed to allocate the particle buffer."};
     }
 
-    glNamedBufferStorage(buffer_, byte_count, particles.data(), GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(buffer_, byte_count, nullptr, 0);
 }
 
 ParticleBuffer::~ParticleBuffer() {

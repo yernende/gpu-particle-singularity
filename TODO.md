@@ -29,7 +29,7 @@ understand → implement → run → inspect → test → commit
 The finished first version must provide all of the following:
 
 - [ ] A branded `gpu-particle-singularity` C++23/OpenGL 4.6 application.
-- [ ] At least `65,536` particles simulated on the GPU after initial CPU-side creation.
+- [ ] At least `65,536` particles created and simulated on the GPU after CPU-side SSBO allocation.
 - [ ] Particle state stored in an SSBO and shared by compute and graphics shaders.
 - [ ] A compute shader that updates position, velocity, age, lifetime, and respawning.
 - [ ] A softened central attraction force, tangential vortex force, and velocity drag.
@@ -42,7 +42,7 @@ The finished first version must provide all of the following:
 - [ ] Dear ImGui controls for simulation, emitter, force, and rendering parameters.
 - [ ] Runtime handling for unsupported particle counts and invalid parameter combinations.
 - [ ] A smoke test that exercises a real compute dispatch and rendered frames.
-- [ ] CPU-side tests for particle layout, deterministic initialization, validation, and dispatch math.
+- [ ] CPU-side tests for particle layout, settings validation, and dispatch math.
 - [ ] Debug and Release builds on Windows x64.
 - [ ] Debug and Release builds on Ubuntu 24.04 x64 through CI or a local machine.
 - [ ] No OpenGL debug errors during normal use or smoke testing.
@@ -248,10 +248,16 @@ layout(std430, binding = 0) readonly buffer ParticleBuffer {
 The explicit checks matter because `std430` and C++ must agree. A layout mismatch usually produces
 plausible-looking garbage, which is the GPU's preferred form of emotional abuse.
 
-### Generate a deterministic annular cloud on the CPU
+### Define a deterministic annular cloud
 
-Let `u1` through `u5` be successive pseudo-random values in `[0, 1)`. The first three values
-determine position, while `u4` and `u5` determine lifetime and initial age.
+Feature 2 originally generated this cloud on the CPU to teach structured SSBO upload before a
+compute shader existed. Feature 4 deliberately removes that temporary generator: the final design
+allocates empty SSBO storage and uses the GPU emitter as the single particle-creation implementation.
+The equations below remain the emitter contract.
+
+Let `u1` through `u8` be successive pseudo-random values in `[0, 1)`. The first three values
+determine position, `u4` through `u6` provide per-axis velocity jitter, `u7` determines lifetime,
+and `u8` staggers age only during whole-population initialization.
 
 Sample the angle:
 
@@ -300,25 +306,25 @@ $$
 \end{bmatrix}
 $$
 
-Use it for an initial velocity even though particles remain static in this feature:
+Combine it with bounded per-axis jitter for emitter velocity:
 
 $$
-\mathbf v_0 = v_{\text{orbit}}\mathbf t
+\mathbf v_0 = v_{\text{orbit}}\mathbf t + \mathbf v_{\text{jitter}}
 $$
 
 Sample lifetime and stagger the initial age:
 
 $$
-L = L_{\min} + u_4(L_{\max} - L_{\min})
+L = L_{\min} + u_7(L_{\max} - L_{\min})
 $$
 
 $$
-a = L u_5
+a = L u_8
 $$
 
-One `Xorshift32` stream generates the complete array. A zero user seed is valid: it is replaced by
-a fixed nonzero internal state because zero is an absorbing state for xorshift32. After generating
-each particle, the current nonzero state is stored in `random_state.x` for future GPU respawning.
+The original CPU milestone used one `Xorshift32` stream. In the final GPU-only design, each compute
+invocation instead derives its own nonzero state from the global seed and particle index, then
+stores the advanced state in `random_state.x` for future respawning.
 
 - [x] Add a small deterministic 32-bit random generator or hash-based generator.
 - [x] Guarantee that every stored random state is nonzero.
@@ -329,30 +335,29 @@ each particle, the current nonzero state is stored in `random_state.x` for futur
 Exact bitwise equality of final positions across operating systems is not required because
 trigonometric implementations may differ slightly. `Deterministic reset` here means that the same
 build, settings, and seed reproduce the same initial state.
-- [x] Add an initialization settings structure with particle count, seed, radii, thickness,
-      lifetime range, and initial orbital speed.
+- [x] Add `ParticleSettings` with particle count, seed, emitter volume, lifetime range, orbital
+      speed, velocity jitter, and escape radius.
 - [x] Reject an inner radius less than or equal to zero.
 - [x] Reject an outer radius smaller than the inner radius.
 - [x] Reject a negative half-thickness.
 - [x] Reject a non-positive minimum lifetime.
 - [x] Reject a maximum lifetime smaller than the minimum lifetime.
-- [x] Reject non-finite radii, thickness, lifetime bounds, and initial orbital speed.
-- [x] Generate exactly the requested number of particles.
-- [x] Treat a requested count of zero as a valid empty result.
+- [x] Reject non-finite radii, thickness, lifetime bounds, orbital speed, jitter, and escape radius.
+- [x] Reject a zero particle count before allocating the SSBO.
+- [x] Require the escape radius to surround the emitter outer radius.
 - [x] Initialize every position inside the requested annulus and vertical range.
 - [x] Initialize every velocity as a finite tangential vector around the world Y axis.
 - [x] Initialize lifetime inside the requested range.
 - [x] Stagger initial age in `[0, lifetime)` so the future emitter does not respawn all particles
       simultaneously.
 - [x] Initialize `random_state.yzw` to zero.
-- [x] Generate the CPU array while constructing `GpsDemo`; after `ParticleBuffer` copies its bytes
-      into immutable storage, do not retain the temporary CPU vector.
-- [x] Add a test that the same settings and seed produce the same particle fields.
-- [x] Add a test that a different seed changes at least one particle.
-- [x] Add tests for exact count, radius, thickness, tangential velocity, age, lifetime, finiteness,
-      nonzero persistent state, and zeroed reserved state.
+- [x] Use the CPU generator only as the temporary Feature 2 learning scaffold.
+- [x] Remove the CPU generator and its duplicate xorshift implementation once GPU initialization
+      becomes available in Feature 4.
+- [x] Keep CPU tests focused on settings validation; validate actual initialization through the
+      real compute-shader smoke path.
 
-### Upload the particle array to an SSBO
+### Allocate the particle SSBO
 
 Required byte count:
 
@@ -369,7 +374,8 @@ $$
 That is exactly `3 MiB`.
 
 - [x] Add a small RAII owner for the particle buffer.
-- [x] Reject an empty array because OpenGL immutable buffer storage requires a positive byte count.
+- [x] Reject a zero particle count because OpenGL immutable buffer storage requires a positive byte
+      count.
 - [x] Create the buffer with `glCreateBuffers`.
 - [x] Treat a returned object name of `0` as allocation failure.
 - [x] Check multiplication for overflow before computing the byte count.
@@ -377,8 +383,8 @@ That is exactly `3 MiB`.
 - [x] Query `GL_MAX_SHADER_STORAGE_BLOCK_SIZE` with `glGetInteger64v`.
 - [x] Reject a requested buffer larger than the implementation limit with a clear message.
 - [x] Allocate immutable storage with `glNamedBufferStorage`.
-- [x] Include `GL_DYNAMIC_STORAGE_BIT` so reset can later replace the contents with
-      `glNamedBufferSubData` without reallocating storage.
+- [x] After Feature 4 moves initialization to compute, allocate with a null data pointer and no
+      `GL_DYNAMIC_STORAGE_BIT`; reset no longer performs a CPU buffer upload.
 - [x] Bind the object to SSBO binding index `0` with `glBindBufferBase`.
 - [x] Delete the buffer in the RAII owner's destructor.
 - [x] Delete copying for the owner.
@@ -627,12 +633,12 @@ Where:
 - $q=0$ means newly born;
 - $q=1$ means expired.
 
-- [ ] Increment age by `uDeltaTime` in the compute shader.
-- [ ] Treat a non-positive lifetime as invalid state that must respawn.
-- [ ] Respawn when `age >= lifetime`.
-- [ ] Respawn when distance from the origin exceeds the escape radius.
-- [ ] Keep core capture for Feature 5, when the attraction force exists.
-- [ ] Preserve finite position and velocity for every live particle.
+- [x] Increment age by `uDeltaTime` in the compute shader.
+- [x] Treat a non-positive lifetime as invalid state that must respawn.
+- [x] Respawn when `age >= lifetime`.
+- [x] Respawn when distance from the origin exceeds the escape radius.
+- [x] Keep core capture for Feature 5, when the attraction force exists.
+- [x] Preserve finite position and velocity for every live particle.
 
 ### Add a persistent GPU random state
 
@@ -655,19 +661,23 @@ float nextUnitFloat(inout uint state) {
 }
 ```
 
-A zero xorshift state remains zero forever, so it is forbidden.
+A zero xorshift state remains zero forever, so it is forbidden. During whole-population
+initialization, every invocation mixes the visible global seed with its particle index to obtain an
+independent starting state. Scheduling order is irrelevant because no invocation consumes a shared
+random stream.
 
-- [ ] Initialize `randomState.x` from particle index and the global seed.
-- [ ] Replace a generated zero state with a fixed nonzero fallback.
-- [ ] Load the state into a local compute-shader variable before generating values.
-- [ ] Advance the state for every emitted random value.
-- [ ] Store the updated state back into the particle after respawn.
-- [ ] Confirm that different particles do not all use the same random sequence.
-- [ ] Keep random state changes on the GPU; do not read them back every frame.
+- [x] Add `uGlobalSeed` and derive each initial `randomState.x` from it and the particle index.
+- [x] Mix the combined seed bits before using the state for emitter samples.
+- [x] Replace a generated or recovered zero state with a fixed nonzero fallback.
+- [x] Load the state into a local compute-shader variable before generating values.
+- [x] Advance the state for every emitted random value.
+- [x] Store the updated state back into the particle after respawn.
+- [x] Keep one private random state per particle instead of one shared parallel generator.
+- [x] Keep random state changes on the GPU; do not read them back every frame.
 
 ### Implement a compute-shader respawn function
 
-Use the same annulus equations as CPU initialization:
+Use the same annulus equations for whole-population initialization and later respawning:
 
 $$
 \phi = 2\pi u_1
@@ -705,17 +715,18 @@ v_{\text{orbit}}
 \mathbf v_{\text{jitter}}
 $$
 
-- [ ] Add uniforms for emitter inner radius, outer radius, and half-thickness.
-- [ ] Add uniforms for minimum and maximum lifetime.
-- [ ] Add uniforms for orbital speed and velocity jitter.
-- [ ] Add a respawn function that receives the particle's random state by `inout`.
-- [ ] Set position from the annular emitter.
-- [ ] Set velocity from tangential motion plus bounded jitter.
-- [ ] Reset age to zero.
-- [ ] Choose a new lifetime inside the configured range.
-- [ ] Store the advanced random state.
-- [ ] Respawn and stop processing that particle for the current simulation step.
-- [ ] Avoid normalizing any vector that may have zero length.
+- [x] Add uniforms for emitter inner radius, outer radius, and half-thickness.
+- [x] Add uniforms for minimum and maximum lifetime.
+- [x] Add uniforms for orbital speed and velocity jitter.
+- [x] Add one `emitParticle` function used by both initialization and respawning.
+- [x] Pass the particle's private random state to `emitParticle` by `inout`.
+- [x] Set position from the annular emitter.
+- [x] Set velocity from tangential motion plus bounded per-axis jitter.
+- [x] Stagger age during whole-population initialization and reset age to zero on ordinary respawn.
+- [x] Choose a new lifetime inside the configured range.
+- [x] Store the advanced random state.
+- [x] Respawn and stop processing that particle for the current simulation step.
+- [x] Avoid normalizing any vector that may have zero length.
 
 ### Recover corrupted numerical state
 
@@ -727,28 +738,33 @@ bool finiteVec3(vec3 value) {
 }
 ```
 
-- [ ] Respawn when position is non-finite.
-- [ ] Respawn when velocity is non-finite.
-- [ ] Respawn when age or lifetime is NaN or infinite.
-- [ ] Keep this recovery even after the force equations appear stable.
+- [x] Respawn when position is non-finite.
+- [x] Respawn when velocity is non-finite.
+- [x] Respawn when age or lifetime is NaN or infinite.
+- [x] Keep this recovery when the force equations are added later.
 
 ### Add deterministic reset
 
-- [ ] Add a temporary ImGui `Reset particles` button.
-- [ ] Re-run CPU initialization from the current global seed when reset is pressed.
-- [ ] Upload replacement state with `glNamedBufferSubData`.
-- [ ] Reset timing state so reset does not inherit a large frame delta.
-- [ ] Confirm that the same seed recreates the same initial cloud.
-- [ ] Confirm that changing the seed creates a visibly different cloud.
-- [ ] Do not recreate the OpenGL buffer merely to reset its contents.
+- [x] Add a temporary ImGui seed input and `Reset particles` button.
+- [x] Add `uInitializeAll` so one compute dispatch can initialize every particle without reading
+      uninitialized SSBO contents.
+- [x] Dispatch GPU initialization from the visible seed when reset is pressed.
+- [x] Reuse the same `emitParticle` implementation used by ordinary respawning.
+- [x] Keep reset entirely on the GPU; do not build or upload a CPU particle array.
+- [x] Simulate zero elapsed time on the reset frame so reset work cannot become a large delta.
+- [x] Ensure that the same seed and settings recreate the same initial cloud independently of GPU
+      invocation order.
+- [x] Ensure that changing the visible seed changes the per-particle starting states.
+- [x] Issue `GL_SHADER_STORAGE_BARRIER_BIT` after initialization before rendering the SSBO.
+- [x] Do not recreate the OpenGL buffer merely to reset its contents.
 
 ### Understanding check
 
-- [ ] Explain why pseudo-random generators carry mutable state.
-- [ ] Explain why xorshift32 cannot recover from a zero state.
-- [ ] Explain why lifetime is stored per particle rather than only as a global uniform.
-- [ ] Explain why reset uploads state but ordinary frames do not.
-- [ ] Explain why numerical recovery is useful even when inputs are validated on the CPU.
+- [x] Explain why pseudo-random generators carry mutable state.
+- [x] Explain why xorshift32 cannot recover from a zero state.
+- [x] Explain why lifetime is stored per particle rather than only as a global uniform.
+- [x] Explain why reset is a special compute dispatch while ordinary frames continue existing state.
+- [x] Explain why numerical recovery is useful even when inputs are validated on the CPU.
 
 ### Acceptance check
 
@@ -758,6 +774,7 @@ bool finiteVec3(vec3 value) {
 3. Reset with the same seed reproduces the same initial field.
 4. No per-frame GPU-to-CPU readback occurs.
 5. The motion is still simple linear velocity; the singularity force comes next.
+6. No CPU particle generator or duplicate CPU random-number implementation remains.
 ```
 
 ---
@@ -1566,10 +1583,10 @@ advertises much larger theoretical limits.
 ### Make particle-buffer recreation predictable
 
 - [ ] Validate the requested count before destroying existing state.
-- [ ] Generate replacement CPU data before modifying the active GPU buffer.
-- [ ] Keep old state intact if CPU initialization throws.
+- [ ] Create and validate a replacement buffer before destroying the active GPU buffer.
+- [ ] Initialize replacement state with a compute dispatch before making it active.
 - [ ] Reallocate only when count actually changes.
-- [ ] Re-upload without reallocation when only the seed or emitter state changes.
+- [ ] Reinitialize through compute without reallocation when only the seed or emitter state changes.
 - [ ] Rebind binding index `0` after any buffer object replacement.
 - [ ] Update active count only after successful creation.
 - [ ] Clear timing accumulation after recreation.
@@ -1688,7 +1705,7 @@ The README should explain:
 - [ ] build, run, test, and sanitizer commands;
 - [ ] the default particle count;
 - [ ] the particle-state layout;
-- [ ] CPU initialization;
+- [ ] GPU initialization from the visible seed and particle index;
 - [ ] compute dispatch and fixed-step update;
 - [ ] the memory barrier;
 - [ ] instanced billboard rendering;
@@ -1702,32 +1719,38 @@ Include this data-flow diagram or an equivalent one:
 CPU / C++
 │
 ├── settings and seed
-├── deterministic initial particles
-├── ParticleGpu[] ──────────────────────────────┐
-├── fixed-step accumulator                      │
-└── ImGui controls                              │
-                                                ↓
-                                   particle SSBO, binding 0
-                                                │
-                          ┌─────────────────────┴─────────────────────┐
-                          ↓                                           ↓
-                  Compute shader                              Billboard vertex shader
-                  ├── one invocation per particle             ├── one instance per particle
-                  ├── forces                                  ├── reads updated SSBO state
-                  ├── integration                             ├── expands six quad vertices
-                  ├── lifetime                                └── projects view-space billboard
-                  └── respawn                                          │
-                          │                                             ↓
-                          └── glMemoryBarrier ───────────────→ Rasterizer
-                                                                        │
-                                                                        ↓
-                                                              Fragment shader
-                                                              ├── radial soft mask
-                                                              ├── lifetime color
-                                                              └── source alpha
-                                                                        │
-                                                                        ↓
-                                                       additive framebuffer blending
+├── allocate empty particle SSBO, binding 0
+├── fixed-step accumulator
+└── ImGui controls
+             │
+             ↓ uniforms and dispatch
+      Compute shader
+      ├── initialize/reset: seed each invocation from seed + particle index
+      ├── one private random state per particle
+      ├── shared emitParticle path for initialization and respawn
+      ├── forces and integration
+      └── lifetime and respawn
+             │
+             ↓ writes particle SSBO
+      glMemoryBarrier
+             │
+             ↓
+      Billboard vertex shader
+      ├── one instance per particle
+      ├── reads updated SSBO state
+      └── expands six quad vertices
+             │
+             ↓
+          Rasterizer
+             │
+             ↓
+      Fragment shader
+      ├── radial soft mask
+      ├── lifetime color
+      └── source alpha
+             │
+             ↓
+      additive framebuffer blending
 ```
 
 - [ ] Make clear that the same SSBO is written by compute and read by graphics.
@@ -1777,7 +1800,8 @@ CPU / C++
 
 ### Understanding check
 
-- [ ] Explain the complete path from CPU initialization to a blended framebuffer pixel.
+- [ ] Explain the complete path from CPU settings through GPU initialization to a blended
+      framebuffer pixel.
 - [ ] Explain which particle work remains on the CPU and which happens on the GPU.
 - [ ] Explain why this design scales better than uploading every updated particle each frame.
 - [ ] Explain the most important limitation that would appear when adding particle-to-particle forces.
@@ -1824,10 +1848,9 @@ src/
 
   simulation/
     particle_data.hpp           # ParticleGpu and layout assertions
-    particle_initializer.cpp    # deterministic CPU initialization
-    particle_initializer.hpp
-    simulation_settings.cpp     # defaults and validation, only if needed
-    simulation_settings.hpp
+    particle_settings.cpp       # defaults and CPU-side validation
+    particle_settings.hpp
+    work_group_count.hpp
 
   support/
     app_options.hpp
@@ -1844,7 +1867,7 @@ tests/
   app_options_test.cpp
   dispatch_math_test.cpp
   icosphere_test.cpp
-  particle_initializer_test.cpp
+  particle_settings_test.cpp
   particle_layout_test.cpp
   simulation_settings_test.cpp
 ```
@@ -2219,7 +2242,7 @@ Check:
 
 Check:
 
-- [ ] Every particle has a distinct seed derived from index and global seed.
+- [ ] Every particle starts from a distinct nonzero point in the deterministic seeded stream.
 - [ ] No random state is zero.
 - [ ] Random state is written back after respawn.
 - [ ] Velocity jitter consumes fresh random values.
@@ -2288,7 +2311,7 @@ first.
 
 The first project version is finished when:
 
-1. particle state is initialized on the CPU and then simulated persistently in a compute shader;
+1. particle state is initialized and then simulated persistently in the compute shader;
 2. attraction, vortex force, drag, lifetime, core capture, escape, and respawn all work;
 3. fixed stepping prevents frame-time spikes from destabilizing the system;
 4. instanced soft billboards render with additive blending;
@@ -2296,7 +2319,8 @@ The first project version is finished when:
 6. ImGui provides useful controls and diagnostics;
 7. count limits, reset, resize, pause, and smoke-test paths behave reliably;
 8. tests, format, static analysis, sanitizers, Debug, Release, and CI pass;
-9. the README explains the actual `CPU → SSBO → compute → barrier → graphics → blend` pipeline;
+9. the README explains the actual `CPU settings → SSBO allocation → compute initialization/update
+   → barrier → graphics → blend` pipeline;
 10. the repository contains presentation media and one final coherent polish commit.
 
 Then:
