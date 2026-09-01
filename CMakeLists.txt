@@ -44,6 +44,8 @@ target_sources(
         src/graphics/particle_gpu.hpp
         src/graphics/shader_program.cpp
         src/graphics/shader_program.hpp
+        src/simulation/fixed_step_accumulator.cpp
+        src/simulation/fixed_step_accumulator.hpp
         src/simulation/particle_settings.cpp
         src/simulation/particle_settings.hpp
         src/simulation/work_group_count.hpp
@@ -79,8 +81,11 @@ if(BUILD_TESTING)
     add_executable(
         gpu_particle_singularity_tests
         tests/app_options_test.cpp
+        tests/fixed_step_accumulator_test.cpp
         tests/particle_settings_test.cpp
         tests/work_group_count_test.cpp
+        src/simulation/fixed_step_accumulator.cpp
+        src/simulation/fixed_step_accumulator.hpp
         src/simulation/particle_settings.cpp
         src/simulation/particle_settings.hpp
         src/simulation/work_group_count.hpp

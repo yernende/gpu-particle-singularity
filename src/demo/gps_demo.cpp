@@ -81,9 +81,15 @@ uniform float uMaximumLifetime;
 uniform float uOrbitalSpeed;
 uniform float uVelocityJitter;
 uniform float uEscapeRadius;
+uniform float uAttractionStrength;
+uniform float uSoftening;
+uniform float uSwirlStrength;
+uniform float uDrag;
+uniform float uCoreRadius;
 
 const uint randomStateFallback = 0x9E3779B9u;
 const float twoPi = 6.28318530717958647692;
+const float minimumTangentLengthSquared = 1e-12;
 
 uint nextUint(inout uint state) {
     state ^= state << 13;
@@ -124,8 +130,10 @@ bool shouldRespawn(Particle particle) {
         return true;
     }
 
+    float radiusSquared = dot(particle.positionAge.xyz, particle.positionAge.xyz);
+    float coreRadiusSquared = uCoreRadius * uCoreRadius;
     float escapeRadiusSquared = uEscapeRadius * uEscapeRadius;
-    return dot(particle.positionAge.xyz, particle.positionAge.xyz) > escapeRadiusSquared;
+    return radiusSquared < coreRadiusSquared || radiusSquared > escapeRadiusSquared;
 }
 
 void emitParticle(inout Particle particle, inout uint randomState, bool staggerAge) {
@@ -178,6 +186,30 @@ void main() {
         return;
     }
 
+    vec3 position = particle.positionAge.xyz;
+    vec3 velocity = particle.velocityLifetime.xyz;
+
+    float softenedRadiusSquared =
+        dot(position, position) + (uSoftening * uSoftening);
+    float inverseRadius = inversesqrt(softenedRadiusSquared);
+    float inverseRadiusCubed = inverseRadius * inverseRadius * inverseRadius;
+    vec3 attraction =
+        -uAttractionStrength * position * inverseRadiusCubed;
+
+    vec3 horizontalPosition = vec3(position.x, 0.0, position.z);
+    vec3 tangent = cross(vec3(0.0, 1.0, 0.0), horizontalPosition);
+    float tangentLengthSquared = dot(tangent, tangent);
+    if (tangentLengthSquared > minimumTangentLengthSquared) {
+        tangent *= inversesqrt(tangentLengthSquared);
+    } else {
+        tangent = vec3(0.0);
+    }
+
+    vec3 vortex = uSwirlStrength * tangent;
+    vec3 drag = -uDrag * velocity;
+    vec3 acceleration = attraction + vortex + drag;
+
+    particle.velocityLifetime.xyz += acceleration * uDeltaTime;
     particle.positionAge.xyz += particle.velocityLifetime.xyz * uDeltaTime;
     if (shouldRespawn(particle)) {
         emitParticle(particle, randomState, false);
@@ -268,6 +300,12 @@ GpsDemo::GpsDemo()
         orbital_speed_location_ = required_uniform_location(compute_program, "uOrbitalSpeed");
         velocity_jitter_location_ = required_uniform_location(compute_program, "uVelocityJitter");
         escape_radius_location_ = required_uniform_location(compute_program, "uEscapeRadius");
+        attraction_strength_location_ =
+            required_uniform_location(compute_program, "uAttractionStrength");
+        softening_location_ = required_uniform_location(compute_program, "uSoftening");
+        swirl_strength_location_ = required_uniform_location(compute_program, "uSwirlStrength");
+        drag_location_ = required_uniform_location(compute_program, "uDrag");
+        core_radius_location_ = required_uniform_location(compute_program, "uCoreRadius");
 
         dispatch_compute(0.0F, true);
     } catch (...) {
@@ -295,7 +333,20 @@ ParticleControlEvents GpsDemo::draw_controls() {
     return events;
 }
 
-void GpsDemo::draw(int framebuffer_width, int framebuffer_height, float delta_time) noexcept {
+void GpsDemo::update(double frame_delta_seconds, bool paused) noexcept {
+    const std::size_t substep_count = fixed_step_accumulator_.advance(frame_delta_seconds, paused);
+    const float fixed_step_seconds = static_cast<float>(fixed_step_accumulator_.step_seconds());
+
+    for (std::size_t substep = 0; substep < substep_count; ++substep) {
+        dispatch_compute(fixed_step_seconds, false);
+    }
+}
+
+void GpsDemo::step_simulation_once() noexcept {
+    dispatch_compute(static_cast<float>(fixed_step_accumulator_.step_seconds()), false);
+}
+
+void GpsDemo::draw(int framebuffer_width, int framebuffer_height) noexcept {
     if (framebuffer_width <= 0 || framebuffer_height <= 0) {
         return;
     }
@@ -306,8 +357,6 @@ void GpsDemo::draw(int framebuffer_width, int framebuffer_height, float delta_ti
     const float aspect_ratio =
         static_cast<float>(framebuffer_width) / static_cast<float>(framebuffer_height);
     const glm::mat4 projection = glm::perspective(glm::radians(45.0F), aspect_ratio, 0.1F, 100.0F);
-
-    dispatch_compute(delta_time, false);
 
     glUseProgram(particle_render_program_.id());
     glUniformMatrix4fv(model_location_, 1, GL_FALSE, glm::value_ptr(model));
@@ -334,12 +383,18 @@ void GpsDemo::dispatch_compute(float delta_time, bool initialize_all) noexcept {
     glUniform1f(orbital_speed_location_, particle_settings_.orbital_speed);
     glUniform1f(velocity_jitter_location_, particle_settings_.velocity_jitter);
     glUniform1f(escape_radius_location_, particle_settings_.escape_radius);
+    glUniform1f(attraction_strength_location_, particle_settings_.attraction_strength);
+    glUniform1f(softening_location_, particle_settings_.softening);
+    glUniform1f(swirl_strength_location_, particle_settings_.swirl_strength);
+    glUniform1f(drag_location_, particle_settings_.drag);
+    glUniform1f(core_radius_location_, particle_settings_.core_radius);
     glDispatchCompute(dispatch_group_count_, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
 
 void GpsDemo::reset_particles() {
     validate_particle_settings(particle_settings_);
+    fixed_step_accumulator_.reset();
     dispatch_compute(0.0F, true);
 }
 

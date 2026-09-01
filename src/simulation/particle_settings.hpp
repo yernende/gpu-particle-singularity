@@ -12,9 +12,14 @@ struct ParticleSettings {
     float emitter_half_thickness = 0.2F;
     float minimum_lifetime = 6.0F;
     float maximum_lifetime = 18.0F;
-    float orbital_speed = 0.35F;
+    float orbital_speed = 1.25F;
     float velocity_jitter = 0.08F;
     float escape_radius = 8.0F;
+    float attraction_strength = 3.0F;
+    float softening = 0.30F;
+    float swirl_strength = 0.04F;
+    float drag = 0.08F;
+    float core_radius = 0.45F;
 };
 
 void validate_particle_settings(const ParticleSettings& settings);

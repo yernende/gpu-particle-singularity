@@ -2,6 +2,7 @@
 
 #include "graphics/particle_buffer.hpp"
 #include "graphics/shader_program.hpp"
+#include "simulation/fixed_step_accumulator.hpp"
 #include "simulation/particle_settings.hpp"
 
 #include <glad/gl.h>
@@ -22,7 +23,9 @@ class GpsDemo final {
     GpsDemo& operator=(GpsDemo&&) = delete;
 
     [[nodiscard]] ParticleControlEvents draw_controls();
-    void draw(int framebuffer_width, int framebuffer_height, float delta_time) noexcept;
+    void update(double frame_delta_seconds, bool paused) noexcept;
+    void step_simulation_once() noexcept;
+    void draw(int framebuffer_width, int framebuffer_height) noexcept;
 
   private:
     void dispatch_compute(float delta_time, bool initialize_all) noexcept;
@@ -33,6 +36,7 @@ class GpsDemo final {
     ShaderProgram particle_render_program_;
     ShaderProgram particle_compute_program_;
     ParticleBuffer particle_buffer_;
+    FixedStepAccumulator fixed_step_accumulator_{};
     GLuint vertex_array_{0};
     GLint model_location_{-1};
     GLint view_location_{-1};
@@ -49,6 +53,11 @@ class GpsDemo final {
     GLint orbital_speed_location_{-1};
     GLint velocity_jitter_location_{-1};
     GLint escape_radius_location_{-1};
+    GLint attraction_strength_location_{-1};
+    GLint softening_location_{-1};
+    GLint swirl_strength_location_{-1};
+    GLint drag_location_{-1};
+    GLint core_radius_location_{-1};
     GLsizei particle_count_{0};
     GLuint dispatch_group_count_{0};
 };

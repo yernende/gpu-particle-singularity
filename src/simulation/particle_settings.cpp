@@ -39,5 +39,22 @@ void validate_particle_settings(const ParticleSettings& settings) {
         throw std::invalid_argument{
             "Escape radius must be finite and greater than the emitter outer radius."};
     }
+    if (!std::isfinite(settings.attraction_strength) || settings.attraction_strength <= 0.0F) {
+        throw std::invalid_argument{"Attraction strength must be finite and greater than zero."};
+    }
+    if (!std::isfinite(settings.softening) || settings.softening <= 0.0F) {
+        throw std::invalid_argument{"Softening must be finite and greater than zero."};
+    }
+    if (!std::isfinite(settings.swirl_strength)) {
+        throw std::invalid_argument{"Swirl strength must be finite."};
+    }
+    if (!std::isfinite(settings.drag) || settings.drag < 0.0F) {
+        throw std::invalid_argument{"Drag must be finite and non-negative."};
+    }
+    if (!std::isfinite(settings.core_radius) || settings.core_radius <= 0.0F ||
+        settings.core_radius >= settings.emitter_inner_radius) {
+        throw std::invalid_argument{
+            "Core radius must be finite, positive, and smaller than the emitter inner radius."};
+    }
 }
 } // namespace gps

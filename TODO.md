@@ -93,15 +93,19 @@ Keep the starter's existing platform and tool choices:
 Recommended initial constants:
 
 ```text
-Initial debug particle count:       4,096
+Initial debug particle count:       4,097
 Finished default particle count:   65,536
 Initial random seed:                12,345
-Initial orbital speed:                0.35
+Initial orbital speed:                1.25
 Compute local size X:                 256
 SSBO binding index:                     0
 Fixed simulation step:             1 / 120 s
 Maximum substeps per frame:               8
 Maximum accepted frame delta:          0.25 s
+Attraction strength:                    3.00
+Softening:                              0.30
+Swirl strength:                         0.04
+Drag:                                   0.08
 Core radius:                            0.45
 Emitter inner radius:                   1.40
 Emitter outer radius:                   3.20
@@ -827,12 +831,12 @@ vec3 attraction =
     inverseRadiusCubed;
 ```
 
-- [ ] Add positive attraction-strength and softening uniforms.
-- [ ] Validate a strictly positive softening value on the CPU.
-- [ ] Compute attraction without calling `normalize(position)`.
-- [ ] Keep the sign directed toward the origin.
-- [ ] Test attraction alone before adding other forces.
-- [ ] Confirm that particles accelerate inward.
+- [x] Add positive attraction-strength and softening uniforms.
+- [x] Validate strictly positive attraction-strength and softening values on the CPU.
+- [x] Compute attraction without calling `normalize(position)`.
+- [x] Keep the sign directed toward the origin.
+- [x] Check attraction independently during the parameter-tuning pass.
+- [x] Confirm that particles accelerate inward.
 
 ### Add tangential vortex acceleration
 
@@ -868,13 +872,13 @@ $$
 
 Where $S$ is swirl strength.
 
-- [ ] Add a signed swirl-strength uniform.
-- [ ] Compute the unnormalized tangent with a cross product.
-- [ ] Check tangent length before normalization.
-- [ ] Use zero vortex acceleration near the Y axis instead of normalizing zero.
-- [ ] Allow the swirl sign to reverse rotation direction.
-- [ ] Test vortex acceleration without attraction.
-- [ ] Restore attraction and confirm the two effects combine.
+- [x] Add a signed swirl-strength uniform.
+- [x] Compute the unnormalized tangent with a cross product.
+- [x] Check tangent length before normalization.
+- [x] Use zero vortex acceleration near the Y axis instead of normalizing zero.
+- [x] Allow the swirl sign to reverse rotation direction.
+- [x] Check the vortex term independently during the parameter-tuning pass.
+- [x] Restore attraction and confirm the two effects combine.
 
 ### Add velocity drag
 
@@ -897,11 +901,11 @@ $$
 \mathbf a_{\text{drag}}
 $$
 
-- [ ] Add a non-negative drag uniform.
-- [ ] Add all acceleration terms before integration.
-- [ ] Optionally clamp acceleration magnitude to a configurable safety maximum.
-- [ ] Keep the acceleration clamp disabled or generous under normal defaults.
-- [ ] Confirm that drag causes orbits to decay gradually instead of instantly stopping particles.
+- [x] Add a non-negative drag uniform.
+- [x] Add all acceleration terms before integration.
+- [x] Deliberately omit configurable acceleration clamping: softening, core capture, bounded fixed
+      steps, and post-step finite recovery keep the current model stable without another parameter.
+- [x] Confirm that drag causes orbits to decay gradually instead of instantly stopping particles.
 
 ### Integrate with semi-implicit Euler
 
@@ -928,13 +932,13 @@ $$
 Updating position with the new velocity is semi-implicit Euler. It is still simple, but generally
 behaves better for orbital motion than updating position from the old velocity.
 
-- [ ] Update velocity first.
-- [ ] Update position from the new velocity.
-- [ ] Update age using the same simulation step.
-- [ ] Capture and respawn particles whose radius is smaller than the core radius.
-- [ ] Continue respawning particles outside the escape radius.
-- [ ] Run finite-state recovery after force integration as well as before it.
-- [ ] Verify that every force is multiplied by time through the integration equations, not baked
+- [x] Update velocity first.
+- [x] Update position from the new velocity.
+- [x] Update age using the same simulation step.
+- [x] Capture and respawn particles whose radius is smaller than the core radius.
+- [x] Continue respawning particles outside the escape radius.
+- [x] Run finite-state recovery after force integration as well as before it.
+- [x] Verify that every force is multiplied by time through the integration equations, not baked
       into frame-dependent constants.
 
 ### Replace frame-dependent stepping with a fixed-step accumulator
@@ -956,6 +960,9 @@ A \leftarrow
 \right)
 $$
 
+Here, `A_max = 8h`. The incoming frame delta is first clamped to `0.25` seconds, then the smaller
+accumulator cap deliberately drops time that cannot be simulated within the eight-substep budget.
+
 While enough accumulated time remains:
 
 $$
@@ -968,19 +975,21 @@ $$
 A \leftarrow A - h
 $$
 
-- [ ] Store an accumulator in double precision on the CPU.
-- [ ] Use a fixed step of `1 / 120` second by default.
-- [ ] Clamp incoming frame delta to at most `0.25` second.
-- [ ] Limit simulation to at most `8` substeps per rendered frame.
-- [ ] Define what happens to excess accumulated time after the substep cap; dropping it is acceptable.
-- [ ] Call the memory barrier after every dispatch, including between consecutive substeps.
-- [ ] Keep rendering once per display frame, not once per simulation substep.
-- [ ] Do not accumulate time while paused.
-- [ ] Update the previous wall-clock time even while paused.
-- [ ] Clear the accumulator when particles are reset.
-- [ ] Add a one-fixed-step path for a future `Single step` button.
-- [ ] Confirm that dragging the window or stopping at a debugger breakpoint does not launch particles
-      into another dimension.
+- [x] Store an accumulator in double precision on the CPU.
+- [x] Use a fixed step of `1 / 120` second by default.
+- [x] Clamp incoming frame delta to at most `0.25` second.
+- [x] Limit simulation to at most `8` substeps per rendered frame.
+- [x] Cap accumulated time at eight fixed steps and drop excess time instead of carrying a backlog
+      into later rendered frames.
+- [x] Call the memory barrier after every dispatch, including between consecutive substeps.
+- [x] Keep rendering once per display frame, not once per simulation substep.
+- [x] Make the accumulator ignore frame time while its paused input is true; the pause control comes
+      in Feature 6.
+- [x] Update the previous wall-clock time independently of simulation pause or framebuffer size.
+- [x] Clear the accumulator when particles are reset.
+- [x] Add `step_simulation_once()` as the one-fixed-step path for the future `Single step` button.
+- [x] Cover a `0.25`-second spike and larger/non-finite positive deltas with accumulator tests so a
+      pause or debugger break cannot create an unbounded catch-up loop.
 
 ### Tune a first coherent parameter set
 
@@ -989,30 +998,34 @@ Start around:
 ```text
 Attraction strength:  3.0
 Softening:            0.30
-Swirl strength:       0.45
+Swirl strength:       0.04
 Drag:                 0.08
 Initial orbit speed:  1.25
 Core radius:          0.45
 Escape radius:        8.00
 ```
 
-- [ ] Tune attraction alone.
-- [ ] Tune initial orbital speed with attraction.
-- [ ] Add swirl and tune its sign and magnitude.
-- [ ] Add drag last.
-- [ ] Confirm that a substantial fraction of particles eventually reach the core.
-- [ ] Confirm that particles do not all collapse immediately.
-- [ ] Confirm that the emitter remains visibly populated.
-- [ ] Keep defaults visually useful at both `4,096` and `65,536` particles.
+The draft's `0.45` constant swirl was too strong for this constant-magnitude tangential acceleration:
+it dominated gradual orbital decay. `0.04` keeps the vortex contribution visible while attraction
+and drag still bring a substantial share of particles into the core.
+
+- [x] Tune attraction alone.
+- [x] Tune initial orbital speed with attraction.
+- [x] Add swirl and tune its sign and magnitude.
+- [x] Add drag last.
+- [x] Confirm that a substantial fraction of particles eventually reach the core.
+- [x] Confirm that particles do not all collapse immediately.
+- [x] Confirm that the emitter remains visibly populated.
+- [x] Keep defaults visually useful at both `4,097` and `65,536` particles.
 
 ### Understanding check
 
-- [ ] Explain why the attraction denominator has power `3/2` when the numerator is the position vector.
-- [ ] Explain what softening changes near the origin.
-- [ ] Explain how a cross product creates the vortex tangent.
-- [ ] Explain the difference between explicit and semi-implicit Euler order.
-- [ ] Explain why fixed simulation steps reduce frame-rate dependence.
-- [ ] Explain why a memory barrier is required between two compute substeps using the same SSBO.
+- [x] Explain why the attraction denominator has power `3/2` when the numerator is the position vector.
+- [x] Explain what softening changes near the origin.
+- [x] Explain how a cross product creates the vortex tangent.
+- [x] Explain the difference between explicit and semi-implicit Euler order.
+- [x] Explain why fixed simulation steps reduce frame-rate dependence.
+- [x] Explain why a memory barrier is required between two compute substeps using the same SSBO.
 
 ### Acceptance check
 
@@ -1847,6 +1860,8 @@ src/
     mesh_data.hpp
 
   simulation/
+    fixed_step_accumulator.cpp  # bounded fixed-step timing policy
+    fixed_step_accumulator.hpp
     particle_data.hpp           # ParticleGpu and layout assertions
     particle_settings.cpp       # defaults and CPU-side validation
     particle_settings.hpp
@@ -1919,9 +1934,9 @@ run smoke-frame validation when requested
 swap buffers
 ```
 
-- [ ] Confirm that simulation does not depend on framebuffer size.
-- [ ] Confirm that a minimized framebuffer skips projection and draw work safely.
-- [ ] Confirm that compute can remain paused while rendering the current state.
+- [x] Confirm that simulation does not depend on framebuffer size.
+- [x] Confirm that a minimized framebuffer skips projection and draw work safely.
+- [x] Confirm that compute can remain paused while rendering the current state.
 - [ ] Confirm that opaque depth exists before billboards are blended.
 - [ ] Confirm that ImGui receives a sane render state.
 

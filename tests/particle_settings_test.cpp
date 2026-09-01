@@ -8,7 +8,7 @@ TEST_CASE("default particle settings are valid") {
     CHECK_NOTHROW(gps::validate_particle_settings(gps::ParticleSettings{}));
 }
 
-TEST_CASE("particle settings reject invalid emitter and lifetime ranges") {
+TEST_CASE("particle settings reject invalid ranges and forces") {
     gps::ParticleSettings settings{};
 
     SECTION("particle count is zero") {
@@ -53,6 +53,31 @@ TEST_CASE("particle settings reject invalid emitter and lifetime ranges") {
 
     SECTION("escape radius does not surround the emitter") {
         settings.escape_radius = settings.emitter_outer_radius;
+        CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
+    }
+
+    SECTION("attraction strength is not positive") {
+        settings.attraction_strength = 0.0F;
+        CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
+    }
+
+    SECTION("softening is not positive") {
+        settings.softening = 0.0F;
+        CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
+    }
+
+    SECTION("swirl strength is not finite") {
+        settings.swirl_strength = std::numeric_limits<float>::infinity();
+        CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
+    }
+
+    SECTION("drag is negative") {
+        settings.drag = -0.1F;
+        CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
+    }
+
+    SECTION("core radius reaches the emitter") {
+        settings.core_radius = settings.emitter_inner_radius;
         CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
     }
 }
