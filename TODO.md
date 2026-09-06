@@ -34,13 +34,13 @@ The finished first version must provide all of the following:
 - [ ] A compute shader that updates position, velocity, age, lifetime, and respawning.
 - [ ] A softened central attraction force, tangential vortex force, and velocity drag.
 - [ ] A bounded fixed-step simulation that remains stable after pauses and frame-time spikes.
-- [ ] Deterministic reset from a user-visible seed.
+- [x] Deterministic reset from a user-visible seed.
 - [ ] Soft camera-facing particle billboards rendered with instancing.
 - [ ] Additive particle blending without per-particle sorting.
 - [ ] Color, opacity, and size variation over particle lifetime.
 - [ ] An opaque central sphere that correctly occludes particles through the depth buffer.
-- [ ] Dear ImGui controls for simulation, emitter, force, and rendering parameters.
-- [ ] Runtime handling for unsupported particle counts and invalid parameter combinations.
+- [x] Dear ImGui controls for simulation, emitter, force, and rendering parameters.
+- [x] Runtime handling for unsupported particle counts and invalid parameter combinations.
 - [ ] A smoke test that exercises a real compute dispatch and rendered frames.
 - [ ] CPU-side tests for particle layout, settings validation, and dispatch math.
 - [ ] Debug and Release builds on Windows x64.
@@ -392,7 +392,8 @@ That is exactly `3 MiB`.
 - [x] Bind the object to SSBO binding index `0` with `glBindBufferBase`.
 - [x] Delete the buffer in the RAII owner's destructor.
 - [x] Delete copying for the owner.
-- [x] Keep movement deleted and store the owner directly in `GpsDemo`.
+- [x] Keep copying deleted and store the owner directly in `GpsDemo`. Feature 6 adds move ownership
+      only when explicit particle-count changes make exception-safe buffer replacement necessary.
 - [x] Construct `GpsDemo` inside the OpenGL context's lifetime so its owner is also destroyed there.
 
 ### Render particles as diagnostic points
@@ -1069,23 +1070,32 @@ Respawn settings
 - velocity jitter
 - lifetime range
 
+Reset-only settings
+- seed
+
 Recreate settings
 - particle count
-- seed
 ```
 
 Emitter changes naturally affect newly respawned particles. Use `Reset particles` when the user
 wants those settings applied to the entire current population immediately.
 
-- [ ] Create one value-type settings structure with deliberate defaults.
-- [ ] Keep GPU object names out of the settings structure.
-- [ ] Distinguish active particle count from a pending UI count.
-- [ ] Recreate or resize the buffer only after an explicit `Apply particle count` action.
-- [ ] Do not allocate GPU memory on every slider movement.
-- [ ] Apply force settings immediately through compute uniforms.
-- [ ] Apply rendering settings immediately through graphics uniforms.
-- [ ] Apply emitter settings to future respawns.
-- [ ] Document that `Reset particles` applies emitter changes to all particles immediately.
+The UI keeps an editable `ParticleSettings` value and a last-valid active value. Invalid edits stay
+visible with an explanation, but the compute and graphics shaders continue receiving the last
+valid settings. Particle count is staged separately and is clamped only on explicit apply to the
+smaller of the cached hardware limit and an application safety cap of `1,048,576` particles
+(`48 MiB` for this layout). Seed does not require SSBO recreation; it takes effect on particle
+reset.
+
+- [x] Create one value-type settings structure with deliberate defaults.
+- [x] Keep GPU object names out of the settings structure.
+- [x] Distinguish active particle count from a pending UI count.
+- [x] Recreate the buffer only after an explicit `Apply particle count` action.
+- [x] Do not allocate GPU memory on every slider movement.
+- [x] Apply force settings immediately through compute uniforms.
+- [x] Apply rendering settings immediately through graphics uniforms.
+- [x] Apply emitter settings to future respawns.
+- [x] Document that `Reset particles` applies emitter changes to all particles immediately.
 
 ### Validate parameter relationships
 
@@ -1107,48 +1117,52 @@ $$
 D \geq 0
 $$
 
-- [ ] Keep core radius positive.
-- [ ] Keep emitter inner radius larger than core radius plus a small margin.
-- [ ] Keep emitter outer radius at least as large as the inner radius.
-- [ ] Keep escape radius larger than the emitter outer radius.
-- [ ] Keep minimum lifetime positive.
-- [ ] Keep maximum lifetime at least the minimum lifetime.
-- [ ] Keep softening strictly positive.
-- [ ] Keep drag non-negative.
-- [ ] Keep particle count within the runtime-derived supported range.
-- [ ] Reject or clamp invalid values before sending them to shaders.
-- [ ] Display a clear validation message instead of silently creating broken state.
-- [ ] Add CPU tests for valid defaults and invalid boundary combinations.
+- [x] Keep core radius positive.
+- [x] Keep emitter inner radius at least `0.05` larger than the core radius.
+- [x] Keep emitter outer radius at least as large as the inner radius.
+- [x] Keep escape radius larger than the emitter outer radius.
+- [x] Keep minimum lifetime positive.
+- [x] Keep maximum lifetime at least the minimum lifetime.
+- [x] Keep softening strictly positive.
+- [x] Keep drag non-negative.
+- [x] Keep particle count within the cached runtime-derived and application-supported range.
+- [x] Reject invalid settings and clamp out-of-range particle-count requests before sending values
+      to OpenGL or shaders.
+- [x] Display a clear validation message instead of silently creating broken state.
+- [x] Add CPU tests for valid defaults and invalid boundary combinations.
 
 ### Build a structured ImGui panel
 
-- [ ] Add a `Simulation` section.
-- [ ] Add `Pause`.
-- [ ] Add `Single step`, enabled only while paused.
-- [ ] Add `Reset particles`.
-- [ ] Add `Reset parameters` separately from particle reset.
-- [ ] Add a seed input.
-- [ ] Add current fixed step and last substep count as read-only information.
-- [ ] Add a `Particles` section with active count and pending count.
-- [ ] Add a deliberate `Apply particle count` button.
-- [ ] Add an `Emitter` section.
-- [ ] Add a `Forces` section.
-- [ ] Add a `Rendering` section.
-- [ ] Add concise tooltips where a control's effect is not immediate or obvious.
-- [ ] Keep labels stable so screenshots and documentation remain understandable.
-- [ ] Avoid exposing every internal constant merely because it exists.
+- [x] Add a `Simulation` section.
+- [x] Add `Pause`.
+- [x] Add `Single step`, enabled only while paused.
+- [x] Add `Reset particles`.
+- [x] Add `Reset parameters` separately from particle reset.
+- [x] Add a seed input.
+- [x] Add current fixed step and last substep count as read-only information.
+- [x] Add a `Particles` section with active count and pending count.
+- [x] Add a deliberate `Apply particle count` button.
+- [x] Add an `Emitter` section.
+- [x] Add a `Forces` section.
+- [x] Add a `Rendering` section.
+- [x] Add concise tooltips where a control's effect is not immediate or obvious.
+- [x] Keep labels stable so screenshots and documentation remain understandable.
+- [x] Avoid exposing every internal constant merely because it exists.
 
 ### Make reset behavior explicit and reliable
 
-- [ ] `Reset particles` must preserve current parameters.
-- [ ] `Reset particles` must preserve pause state.
-- [ ] `Reset particles` must recreate initial state from the visible seed.
-- [ ] `Reset parameters` must restore documented default values.
-- [ ] Decide whether `Reset parameters` also resets particles; if it does, label that behavior clearly.
-- [ ] Clear the simulation accumulator after any particle-state replacement.
-- [ ] Rebind the SSBO after buffer recreation.
-- [ ] Refresh any cached particle-count uniform after recreation.
-- [ ] Confirm that reset works while paused and while running.
+- [x] `Reset particles` preserves current parameters.
+- [x] `Reset particles` preserves pause state.
+- [x] `Reset particles` recreates initial state from the visible seed.
+- [x] `Reset parameters` restores documented default values.
+- [x] Keep `Reset parameters` separate from simulation-state reset: it restores live/editable
+      defaults and the pending default count, but it does not replace particles or change the
+      active count.
+- [x] Clear the simulation accumulator after any particle-state replacement.
+- [x] Rebind the SSBO after buffer recreation.
+- [x] Refresh the cached draw/dispatch counts and upload the new particle-count uniform after
+      recreation.
+- [x] Keep the reset path independent of pause state so it behaves the same while paused or running.
 
 ### Display useful diagnostics
 
@@ -1172,20 +1186,20 @@ M =
 }
 $$
 
-- [ ] Show active particle count.
-- [ ] Show work-group count per substep.
-- [ ] Show particle-buffer size in MiB.
-- [ ] Show rendered FPS or CPU frame time.
-- [ ] Show the number of simulation substeps used for the latest frame.
-- [ ] Show whether the requested count was clamped by a hardware or application limit.
-- [ ] Do not call `glGet*` every frame for values that never change; cache hardware limits at startup.
+- [x] Show active particle count.
+- [x] Show work-group count per substep.
+- [x] Show particle-buffer size in MiB.
+- [x] Show rendered FPS and frame time.
+- [x] Show the number of simulation substeps used for the latest frame.
+- [x] Show whether the requested count was clamped by a hardware or application limit.
+- [x] Do not call `glGet*` every frame for values that never change; cache hardware limits at startup.
 
 ### Understanding check
 
-- [ ] Explain why some settings are live while others require reset or buffer recreation.
-- [ ] Explain why validation belongs on the CPU even though the shader has numerical recovery.
-- [ ] Explain why a particle-count slider should not reallocate continuously.
-- [ ] Explain the difference between resetting parameters and resetting simulation state.
+- [x] Explain why some settings are live while others require reset or buffer recreation.
+- [x] Explain why validation belongs on the CPU even though the shader has numerical recovery.
+- [x] Explain why a particle-count input should not reallocate continuously.
+- [x] Explain the difference between resetting parameters and resetting simulation state.
 
 ### Acceptance check
 

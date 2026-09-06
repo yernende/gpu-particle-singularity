@@ -16,8 +16,19 @@ TEST_CASE("particle settings reject invalid ranges and forces") {
         CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
     }
 
+    SECTION("core radius is not positive") {
+        settings.core_radius = 0.0F;
+        CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
+    }
+
     SECTION("emitter inner radius is not positive") {
         settings.emitter_inner_radius = 0.0F;
+        CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
+    }
+
+    SECTION("emitter inner radius does not clear the core margin") {
+        settings.emitter_inner_radius =
+            settings.core_radius + (gps::minimum_emitter_core_margin * 0.5F);
         CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
     }
 
@@ -78,6 +89,11 @@ TEST_CASE("particle settings reject invalid ranges and forces") {
 
     SECTION("core radius reaches the emitter") {
         settings.core_radius = settings.emitter_inner_radius;
+        CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
+    }
+
+    SECTION("point size is not positive") {
+        settings.point_size = 0.0F;
         CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
     }
 }

@@ -8,8 +8,15 @@ void validate_particle_settings(const ParticleSettings& settings) {
     if (settings.particle_count == 0) {
         throw std::invalid_argument{"Particle count must be greater than zero."};
     }
+    if (!std::isfinite(settings.core_radius) || settings.core_radius <= 0.0F) {
+        throw std::invalid_argument{"Core radius must be finite and greater than zero."};
+    }
     if (!std::isfinite(settings.emitter_inner_radius) || settings.emitter_inner_radius <= 0.0F) {
         throw std::invalid_argument{"Emitter inner radius must be finite and greater than zero."};
+    }
+    if (settings.emitter_inner_radius < settings.core_radius + minimum_emitter_core_margin) {
+        throw std::invalid_argument{
+            "Emitter inner radius must be at least 0.05 larger than the core radius."};
     }
     if (!std::isfinite(settings.emitter_outer_radius) ||
         settings.emitter_outer_radius < settings.emitter_inner_radius) {
@@ -51,10 +58,8 @@ void validate_particle_settings(const ParticleSettings& settings) {
     if (!std::isfinite(settings.drag) || settings.drag < 0.0F) {
         throw std::invalid_argument{"Drag must be finite and non-negative."};
     }
-    if (!std::isfinite(settings.core_radius) || settings.core_radius <= 0.0F ||
-        settings.core_radius >= settings.emitter_inner_radius) {
-        throw std::invalid_argument{
-            "Core radius must be finite, positive, and smaller than the emitter inner radius."};
+    if (!std::isfinite(settings.point_size) || settings.point_size <= 0.0F) {
+        throw std::invalid_argument{"Point size must be finite and greater than zero."};
     }
 }
 } // namespace gps

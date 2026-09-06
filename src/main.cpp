@@ -45,9 +45,10 @@ int run(const gps::AppOptions& options) {
 
         const gps::ParticleControlEvents control_events = particle_demo.draw_controls();
         const double now = glfwGetTime();
-        const double frame_delta = control_events.particles_reset ? 0.0 : now - previous_time;
+        const double frame_delta =
+            control_events.particle_state_replaced ? 0.0 : now - previous_time;
         previous_time = now;
-        particle_demo.update(frame_delta, false);
+        particle_demo.update(frame_delta, control_events.single_step_requested);
 
         int framebuffer_width = 0;
         int framebuffer_height = 0;

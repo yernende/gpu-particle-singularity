@@ -4,6 +4,8 @@
 #include <cstdint>
 
 namespace gps {
+inline constexpr float minimum_emitter_core_margin = 0.05F;
+
 struct ParticleSettings {
     std::size_t particle_count = 4'097;
     std::uint32_t seed = 12'345U;
@@ -20,6 +22,7 @@ struct ParticleSettings {
     float swirl_strength = 0.04F;
     float drag = 0.08F;
     float core_radius = 0.45F;
+    float point_size = 3.0F;
 };
 
 void validate_particle_settings(const ParticleSettings& settings);
