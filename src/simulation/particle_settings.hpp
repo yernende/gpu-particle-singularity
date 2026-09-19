@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -22,6 +23,10 @@ struct ParticleSettings {
     float swirl_strength = 0.04F;
     float drag = 0.08F;
     float core_radius = 0.45F;
+    float billboard_base_size = 0.035F; // Half-size in world units before the lifetime scale.
+    std::array<float, 3> birth_color{0.20F, 0.55F, 1.0F};
+    std::array<float, 3> death_color{1.0F, 0.25F, 0.05F};
+    bool diagnostic_points = false;
     float point_size = 3.0F;
 };
 

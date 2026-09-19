@@ -8,6 +8,37 @@ TEST_CASE("default particle settings are valid") {
     CHECK_NOTHROW(gps::validate_particle_settings(gps::ParticleSettings{}));
 }
 
+TEST_CASE("billboard appearance rejects invalid GPU inputs") {
+    const std::array invalid_sizes{0.0F, -0.1F, std::numeric_limits<float>::infinity(),
+                                   std::numeric_limits<float>::quiet_NaN()};
+    for (const float size : invalid_sizes) {
+        gps::ParticleSettings settings{};
+        settings.billboard_base_size = size;
+        CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
+    }
+
+    const std::array invalid_channels{-0.1F, 1.1F, std::numeric_limits<float>::infinity(),
+                                      std::numeric_limits<float>::quiet_NaN()};
+    for (const float channel : invalid_channels) {
+        for (std::size_t component = 0; component < 3; ++component) {
+            gps::ParticleSettings settings{};
+            settings.birth_color[component] = channel;
+            CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
+
+            settings = gps::ParticleSettings{};
+            settings.death_color[component] = channel;
+            CHECK_THROWS_AS(gps::validate_particle_settings(settings), std::invalid_argument);
+        }
+    }
+}
+
+TEST_CASE("billboard colors accept black and white endpoints") {
+    gps::ParticleSettings settings{};
+    settings.birth_color = {0.0F, 0.0F, 0.0F};
+    settings.death_color = {1.0F, 1.0F, 1.0F};
+    CHECK_NOTHROW(gps::validate_particle_settings(settings));
+}
+
 TEST_CASE("particle settings reject invalid ranges and forces") {
     gps::ParticleSettings settings{};
 

@@ -53,6 +53,10 @@ class GpsDemo final {
     GLint view_location_{-1};
     GLint projection_location_{-1};
     GLint point_size_location_{-1};
+    GLint diagnostic_points_location_{-1};
+    GLint billboard_base_size_location_{-1};
+    GLint birth_color_location_{-1};
+    GLint death_color_location_{-1};
     GLint particle_count_location_{-1};
     GLint delta_time_location_{-1};
     GLint initialize_all_location_{-1};

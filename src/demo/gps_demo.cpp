@@ -40,26 +40,73 @@ uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProjection;
 uniform float uPointSize;
+uniform bool uDiagnosticPoints;
+uniform float uBillboardBaseSize;
+uniform vec3 uBirthColor;
+uniform vec3 uDeathColor;
+
+out vec2 vUv;
+flat out vec3 vColor;
+flat out float vLifetimeFade;
+
+const vec2 corners[6] = vec2[](
+    vec2(-1.0, -1.0),
+    vec2(+1.0, -1.0),
+    vec2(+1.0, +1.0),
+    vec2(-1.0, -1.0),
+    vec2(+1.0, +1.0),
+    vec2(-1.0, +1.0)
+);
 
 void main() {
-    uint particleIndex = uint(gl_VertexID);
+    // Points use one vertex per particle; billboards use one instance per particle.
+    uint particleIndex = uDiagnosticPoints ? uint(gl_VertexID) : uint(gl_InstanceID);
     Particle particle = particles[particleIndex];
+    vec4 centerView = uView * uModel * vec4(particle.positionAge.xyz, 1.0);
 
-    gl_Position = uProjection * uView * uModel * vec4(particle.positionAge.xyz, 1.0);
-    gl_PointSize = uPointSize;
+    vUv = vec2(0.5);
+    vColor = vec3(0.3, 0.75, 1.0);
+    vLifetimeFade = 1.0;
+    if (uDiagnosticPoints) {
+        gl_Position = uProjection * centerView;
+        gl_PointSize = uPointSize;
+        return;
+    }
+
+    float age = clamp(particle.positionAge.w / particle.velocityLifetime.w, 0.0, 1.0);
+    vLifetimeFade = smoothstep(0.0, 0.1, age) * (1.0 - smoothstep(0.75, 1.0, age));
+    vColor = mix(uBirthColor, uDeathColor, age);
+    float size = uBillboardBaseSize * mix(0.65, 1.35, age);
+
+    vec2 corner = corners[gl_VertexID];
+    vUv = 0.5 * (corner + 1.0);
+    // Expand along the camera's X/Y axes; all corners keep the center's depth.
+    centerView.xy += size * corner;
+    gl_Position = uProjection * centerView;
 }
 )glsl";
 
 constexpr std::string_view fragment_shader_source = R"glsl(#version 460 core
+in vec2 vUv;
+flat in vec3 vColor;
+flat in float vLifetimeFade;
+
+uniform bool uDiagnosticPoints;
+
 layout(location = 0) out vec4 fragmentColor;
 
 void main() {
-    vec2 pointPosition = (2.0 * gl_PointCoord) - 1.0;
-    if (dot(pointPosition, pointPosition) > 1.0) {
+    vec2 uv = uDiagnosticPoints ? gl_PointCoord : vUv;
+    vec2 discPosition = 2.0 * uv - 1.0;
+    float radiusSquared = dot(discPosition, discPosition);
+    if (radiusSquared >= 1.0) {
         discard;
     }
 
-    fragmentColor = vec4(0.3, 0.75, 1.0, 1.0);
+    float mask = 1.0 - smoothstep(0.0, 1.0, sqrt(radiusSquared));
+    float alpha = uDiagnosticPoints ? 1.0 : mask * vLifetimeFade;
+    // RGB is not premultiplied: GL_SRC_ALPHA applies the mask and fade once.
+    fragmentColor = vec4(vColor, alpha);
 }
 )glsl";
 
@@ -258,7 +305,7 @@ constexpr float maximum_ui_point_size = 20.0F;
 
 [[nodiscard]] GLsizei checked_particle_count(std::size_t particle_count) {
     if (std::cmp_greater(particle_count, std::numeric_limits<GLsizei>::max())) {
-        throw std::length_error{"Particle count does not fit the glDrawArrays GLsizei limit."};
+        throw std::length_error{"Particle count does not fit the draw command's GLsizei limit."};
     }
 
     return static_cast<GLsizei>(particle_count);
@@ -354,6 +401,14 @@ GpsDemo::GpsDemo()
             required_uniform_location(particle_render_program_.id(), "uProjection");
         point_size_location_ =
             required_uniform_location(particle_render_program_.id(), "uPointSize");
+        diagnostic_points_location_ =
+            required_uniform_location(particle_render_program_.id(), "uDiagnosticPoints");
+        billboard_base_size_location_ =
+            required_uniform_location(particle_render_program_.id(), "uBillboardBaseSize");
+        birth_color_location_ =
+            required_uniform_location(particle_render_program_.id(), "uBirthColor");
+        death_color_location_ =
+            required_uniform_location(particle_render_program_.id(), "uDeathColor");
 
         const GLuint compute_program = particle_compute_program_.id();
         particle_count_location_ = required_uniform_location(compute_program, "uParticleCount");
@@ -493,10 +548,20 @@ ParticleControlEvents GpsDemo::draw_controls() {
         }
 
         if (ImGui::CollapsingHeader("Rendering", ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::DragFloat("Point size", &edited_settings_.point_size, 0.1F, 1.0F,
-                             maximum_ui_point_size, "%.1f px", ImGuiSliderFlags_AlwaysClamp);
-            show_tooltip("This controls the current diagnostic GL_POINTS renderer immediately. "
-                         "Feature 7 replaces points with billboards.");
+            ImGui::Checkbox("Diagnostic points", &edited_settings_.diagnostic_points);
+            show_tooltip("Shows opaque, fixed-pixel-size points without lifetime fading to "
+                         "inspect particle positions. Switching modes preserves the simulation.");
+            if (edited_settings_.diagnostic_points) {
+                ImGui::DragFloat("Point size", &edited_settings_.point_size, 0.1F, 1.0F,
+                                 maximum_ui_point_size, "%.1f px", ImGuiSliderFlags_AlwaysClamp);
+            } else {
+                ImGui::DragFloat("Billboard base size", &edited_settings_.billboard_base_size,
+                                 0.001F, 0.001F, 0.2F, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+                show_tooltip("Half-size in world units, scaled from 0.65 to 1.35 over lifetime. "
+                             "Distant particles appear smaller under perspective projection.");
+                ImGui::ColorEdit3("Birth color", edited_settings_.birth_color.data());
+                ImGui::ColorEdit3("Death color", edited_settings_.death_color.data());
+            }
         }
     }
 
@@ -639,8 +704,35 @@ void GpsDemo::draw(int framebuffer_width, int framebuffer_height) noexcept {
     glUniformMatrix4fv(view_location_, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projection_location_, 1, GL_FALSE, glm::value_ptr(projection));
     glUniform1f(point_size_location_, active_settings_.point_size);
+    glUniform1i(diagnostic_points_location_,
+                active_settings_.diagnostic_points ? GL_TRUE : GL_FALSE);
+    glUniform1f(billboard_base_size_location_, active_settings_.billboard_base_size);
+    glUniform3fv(birth_color_location_, 1, active_settings_.birth_color.data());
+    glUniform3fv(death_color_location_, 1, active_settings_.death_color.data());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, particle_buffer_binding_index,
+                     particle_buffer_.id());
     glBindVertexArray(vertex_array_);
-    glDrawArrays(GL_POINTS, 0, particle_count_);
+
+    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    if (active_settings_.diagnostic_points) {
+        glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);
+        glEnable(GL_PROGRAM_POINT_SIZE);
+        glDrawArrays(GL_POINTS, 0, particle_count_);
+        glDisable(GL_PROGRAM_POINT_SIZE);
+    } else {
+        // Contributions add in any order; depth testing still allows opaque occlusion.
+        glEnable(GL_BLEND);
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        glDepthMask(GL_FALSE);
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, particle_count_);
+    }
+
+    // Restore the application's baseline before ImGui and the next frame's depth clear.
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
 }
 
 void GpsDemo::dispatch_compute(float delta_time, bool initialize_all) noexcept {

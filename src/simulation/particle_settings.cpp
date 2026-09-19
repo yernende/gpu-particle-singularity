@@ -1,5 +1,6 @@
 #include "simulation/particle_settings.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
@@ -60,6 +61,16 @@ void validate_particle_settings(const ParticleSettings& settings) {
     }
     if (!std::isfinite(settings.point_size) || settings.point_size <= 0.0F) {
         throw std::invalid_argument{"Point size must be finite and greater than zero."};
+    }
+    if (!std::isfinite(settings.billboard_base_size) || settings.billboard_base_size <= 0.0F) {
+        throw std::invalid_argument{"Billboard base size must be finite and greater than zero."};
+    }
+    const auto valid_color_channel = [](float channel) {
+        return std::isfinite(channel) && channel >= 0.0F && channel <= 1.0F;
+    };
+    if (!std::ranges::all_of(settings.birth_color, valid_color_channel) ||
+        !std::ranges::all_of(settings.death_color, valid_color_channel)) {
+        throw std::invalid_argument{"Particle color channels must be finite and between 0 and 1."};
     }
 }
 } // namespace gps

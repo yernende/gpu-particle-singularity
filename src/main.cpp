@@ -27,7 +27,6 @@ int run(const gps::AppOptions& options) {
 
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_PROGRAM_POINT_SIZE);
     glDisable(GL_BLEND);
     glDisable(GL_CULL_FACE);
 
