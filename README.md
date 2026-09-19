@@ -4,6 +4,15 @@ A small real-time particle laboratory built with **C++23 and OpenGL 4.6**. Parti
 drift toward a central attractor, and regenerate in a continuous loop. Compute shaders handle
 their entire lifecycle; instanced, camera-facing billboards turn that state into soft light.
 
+> **Learning project and AI assistance**
+>
+> This is an educational repository documenting my approach to learning C++ and graphics
+> programming. I use AI to brainstorm ideas, plan the project, and write code incrementally.
+> At each step, I study and review the implementation, working through the concepts and design
+> decisions behind it. The code is AI-assisted, and I have personally worked through all of it
+> and understand how it works. Building that understanding is the purpose of the project and
+> the central part of this learning method.
+
 ![Blue and warm-colored particles swirling around a central attractor against a dark background](docs/images/singularity-default.png)
 
 *Captured from the current renderer with the default 4,097 particles and seed 12,345.
