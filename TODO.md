@@ -1,5 +1,28 @@
 # GPU Particle Singularity
 
+## Preserved milestone — September 20, 2026
+
+The project is paused at **Feature 7: soft instanced billboards** and presented as a small
+standalone graphics portfolio project. The [README](README.md) describes the working application;
+this file preserves the original, more ambitious learning roadmap.
+
+| Roadmap area | Current state |
+| --- | --- |
+| Features 1–6 | Implemented: project baseline, shared particle SSBO, compute simulation, persistent emitter, singularity forces, fixed stepping, and interactive controls. |
+| Feature 7 | Implemented: soft camera-facing quads, lifetime appearance, additive blending, and diagnostic point mode. This was the last local implementation milestone after the Feature 6 commit `28e533e`. |
+| Feature 8 | Deferred: an opaque central sphere and its depth composition. The existing core radius is a simulation capture threshold only. |
+| Feature 9 | Partially covered by existing count limits, validation, RAII, CPU tests, and a three-frame OpenGL smoke test. Extended GPU checks and the full boundary/lifecycle matrix remain deferred. |
+| Feature 10 | Portfolio documentation and fresh screenshots prepared for this milestone. The larger presentation/performance and cross-platform validation targets below remain optional future work. |
+
+Current defaults are **4,097 particles**, seed **12,345**, soft billboards, and a fixed camera.
+The planned 65,536-particle default was not adopted. On September 20, 2026, Windows MSVC Debug
+and Release both built, passed all 16 CTest cases, and passed the real NVIDIA OpenGL smoke test.
+This check did not rerun the Linux or sanitizer matrix.
+
+The original checklists below are retained as learning notes, not release requirements for this
+snapshot. Some top-level boxes predate the implementation; use the status above and the source
+as the current reference. Unchecked understanding questions are left for the author to answer.
+
 ## How to use this roadmap
 
 This roadmap is divided into **vertical features**, not tiny implementation chores. Each numbered
@@ -24,9 +47,10 @@ understand → implement → run → inspect → test → commit
 
 ---
 
-# Definition of Done
+# Original Definition of Done
 
-The finished first version must provide all of the following:
+The initial roadmap targeted all of the following. This broader target is historical; it does
+not define the scope of the preserved Feature 7 milestone above.
 
 - [ ] A branded `gpu-particle-singularity` C++23/OpenGL 4.6 application.
 - [ ] At least `65,536` particles created and simulated on the GPU after CPU-side SSBO allocation.
@@ -35,9 +59,9 @@ The finished first version must provide all of the following:
 - [ ] A softened central attraction force, tangential vortex force, and velocity drag.
 - [ ] A bounded fixed-step simulation that remains stable after pauses and frame-time spikes.
 - [x] Deterministic reset from a user-visible seed.
-- [ ] Soft camera-facing particle billboards rendered with instancing.
-- [ ] Additive particle blending without per-particle sorting.
-- [ ] Color, opacity, and size variation over particle lifetime.
+- [x] Soft camera-facing particle billboards rendered with instancing.
+- [x] Additive particle blending without per-particle sorting.
+- [x] Color, opacity, and size variation over particle lifetime.
 - [ ] An opaque central sphere that correctly occludes particles through the depth buffer.
 - [x] Dear ImGui controls for simulation, emitter, force, and rendering parameters.
 - [x] Runtime handling for unsupported particle counts and invalid parameter combinations.
@@ -1060,8 +1084,9 @@ Live force settings
 - optional acceleration limit
 
 Live rendering settings
-- point size for the current diagnostic renderer
-- colors later used by the billboard renderer
+- diagnostic point mode and its pixel size
+- billboard base size in world units
+- billboard birth and death colors
 
 Respawn settings
 - emitter radii
@@ -1241,13 +1266,13 @@ Select the particle with:
 uint particleIndex = uint(gl_InstanceID);
 ```
 
-- [ ] Keep or create one empty VAO for the procedural quad draw.
-- [ ] Draw six vertices per instance with `glDrawArraysInstanced`.
-- [ ] Check that particle count fits the draw command's `GLsizei` instance count.
-- [ ] Read particle state from the SSBO using `gl_InstanceID`.
-- [ ] Use `gl_VertexID` only for the six local quad corners.
-- [ ] Pass local UV coordinates to the fragment shader.
-- [ ] Keep a diagnostic point-rendering toggle until billboards are proven correct.
+- [x] Keep or create one empty VAO for the procedural quad draw.
+- [x] Draw six vertices per instance with `glDrawArraysInstanced`.
+- [x] Check that particle count fits the draw command's `GLsizei` instance count.
+- [x] Read particle state from the SSBO using `gl_InstanceID`.
+- [x] Use `gl_VertexID` only for the six local quad corners.
+- [x] Pass local UV coordinates to the fragment shader.
+- [x] Keep a diagnostic point-rendering toggle until billboards are proven correct.
 
 ### Expand billboards in view space
 
@@ -1284,12 +1309,12 @@ $$
 Expanding in view space makes the quad camera-facing without explicitly passing camera-right and
 camera-up vectors.
 
-- [ ] Transform the particle center into view space.
-- [ ] Offset only view-space X and Y by the local corner.
-- [ ] Preserve the center's view-space Z value for all six vertices.
-- [ ] Project the expanded position.
-- [ ] Confirm that billboard size decreases naturally with distance under perspective projection.
-- [ ] Confirm that rotating or moving the camera in temporary tests does not reveal flat quad angles.
+- [x] Transform the particle center into view space.
+- [x] Offset only view-space X and Y by the local corner.
+- [x] Preserve the center's view-space Z value for all six vertices.
+- [x] Project the expanded position.
+- [x] Confirm that billboard size decreases naturally with distance under perspective projection.
+- [x] Confirm that rotating or moving the camera in temporary tests does not reveal flat quad angles.
 
 ### Calculate lifetime appearance
 
@@ -1335,14 +1360,16 @@ s_0
 \left(s_{\text{start}},s_{\text{end}},q\right)
 $$
 
-- [ ] Pass normalized age or enough state to calculate it in the graphics shaders.
-- [ ] Fade particles in over a short initial interval.
-- [ ] Fade particles out before expiration.
-- [ ] Vary size over lifetime.
-- [ ] Use at least a two-color gradient over lifetime.
-- [ ] Optionally use a third midpoint color for a hotter visual center.
-- [ ] Expose base size and colors in ImGui.
-- [ ] Avoid storing derived color and size in the SSBO unless there is a demonstrated need.
+- [x] Pass normalized age or enough state to calculate it in the graphics shaders.
+- [x] Fade particles in over a short initial interval.
+- [x] Fade particles out before expiration.
+- [x] Vary size over lifetime.
+- [x] Use at least a two-color gradient over lifetime.
+- [x] Keep the gradient to two editable endpoint colors for this milestone; omit the optional
+      third midpoint color.
+- [x] Expose base size and colors in ImGui.
+- [x] Validate a finite positive base size and finite RGB channels in `[0,1]` on the CPU.
+- [x] Avoid storing derived color and size in the SSBO unless there is a demonstrated need.
 
 ### Create a procedural soft disc
 
@@ -1375,12 +1402,12 @@ $$
 \alpha = m f_{\text{life}}
 $$
 
-- [ ] Calculate distance from the UV center.
-- [ ] Discard fragments clearly outside the unit circle.
-- [ ] Use `smoothstep` near the edge.
-- [ ] Multiply the radial mask by the lifetime fade.
-- [ ] Avoid a hard square boundary.
-- [ ] Tune the center so particles look luminous without bloom.
+- [x] Calculate distance from the UV center.
+- [x] Discard fragments clearly outside the unit circle.
+- [x] Use `smoothstep` near the edge.
+- [x] Multiply the radial mask by the lifetime fade.
+- [x] Avoid a hard square boundary.
+- [x] Tune the center so particles look luminous without bloom.
 
 ### Use additive blending with correct depth behavior
 
@@ -1400,15 +1427,45 @@ glDepthMask(GL_TRUE);
 glDisable(GL_BLEND);
 ```
 
-- [ ] Keep depth testing enabled for particle rendering.
-- [ ] Disable depth writes only for the particle pass.
-- [ ] Enable additive blending only for the particle pass.
-- [ ] Use `GL_SRC_ALPHA, GL_ONE`.
-- [ ] Disable face culling for the procedural billboards.
-- [ ] Restore depth writes after the particle pass.
-- [ ] Restore blending state before ImGui rendering.
-- [ ] Confirm that changing render order among particles does not produce obvious alpha-sorting artifacts.
-- [ ] Document that additive blending is the reason sorting is intentionally omitted.
+- [x] Keep depth testing enabled for particle rendering.
+- [x] Disable depth writes only for the particle pass.
+- [x] Enable additive blending only for the particle pass.
+- [x] Use `GL_SRC_ALPHA, GL_ONE`.
+- [x] Disable face culling for the procedural billboards.
+- [x] Restore depth writes after the particle pass.
+- [x] Restore blending state before ImGui rendering.
+- [x] Confirm that changing render order among particles does not produce obvious alpha-sorting artifacts.
+- [x] Document that additive blending is the reason sorting is intentionally omitted.
+
+### Implementation notes
+
+Billboards are the default. One graphics program handles both modes through `uDiagnosticPoints`;
+the diagnostic branch retains opaque cyan points with a fixed pixel size and no lifetime fading.
+It uses `gl_VertexID` for the particle index, while the billboard branch uses `gl_InstanceID` for
+the particle and `gl_VertexID` for its six corners. Switching modes does not reset the simulation.
+The existing empty VAO and SSBO are reused, and `draw()` explicitly binds the SSBO even while paused.
+
+The default base size is `0.035` world units, interpreted as the quad half-size before lifetime
+scaling. Size grows from `0.65` to `1.35` times that value. The fade-in spans the first 10% of
+lifetime, and the fade-out spans the final 25%. Color interpolates from RGB `(0.20, 0.55, 1.0)` to
+`(1.0, 0.25, 0.05)`. The radial mask uses `r_soft = 0`, so the whole disc falls off smoothly from
+its bright center. These curves stay in the shader; only base size and endpoint colors are exposed.
+
+The fragment shader outputs unpremultiplied RGB with `alpha = mask * lifetimeFade`.
+`GL_SRC_ALPHA, GL_ONE` then adds `sourceRGB * alpha` to destination RGB exactly once. These
+contributions can be added in either order, so particles are intentionally unsorted. Billboards
+keep depth testing but disable depth writes; diagnostic points retain their opaque depth writes.
+The pass restores depth writes and disables blending before ImGui and the next frame's depth clear.
+See the [Khronos blending reference](https://wikis.khronos.org/opengl/Blending) for the blend equation.
+
+Validation: Windows MSVC Debug and Release builds, all 16 CPU tests in each configuration, and both
+three-frame OpenGL smoke runs passed on an NVIDIA RTX 3060 Ti. A temporary hidden-window probe
+using the production shaders checked soft edges, separate SSBO instances, lifetime fade/color/size,
+half-size at twice the camera distance, a 90-degree camera rotation, additive order independence,
+unchanged particle depth, and occlusion by existing nearer depth. The actual application pass was
+checked for state restoration, and captured frames were visually inspected with ImGui. The probe
+and captures stay in ignored `out/feature7-validation`; no GPU readback was added to the app loop.
+The understanding check below remains a learner exercise.
 
 ### Understanding check
 
@@ -1726,19 +1783,19 @@ showcase rather than a renamed lesson bootstrap.
 
 The README should explain:
 
-- [ ] what the application displays;
-- [ ] that it is an artistic particle simulation, not black-hole physics;
-- [ ] the supported platforms;
-- [ ] build, run, test, and sanitizer commands;
-- [ ] the default particle count;
-- [ ] the particle-state layout;
-- [ ] GPU initialization from the visible seed and particle index;
-- [ ] compute dispatch and fixed-step update;
-- [ ] the memory barrier;
-- [ ] instanced billboard rendering;
-- [ ] additive blending and depth behavior;
-- [ ] ImGui controls;
-- [ ] project limitations and future work.
+- [x] what the application displays;
+- [x] that it is an artistic particle simulation, not black-hole physics;
+- [x] the supported platforms;
+- [x] build, run, test, and sanitizer commands;
+- [x] the default particle count;
+- [x] the particle-state layout;
+- [x] GPU initialization from the visible seed and particle index;
+- [x] compute dispatch and fixed-step update;
+- [x] the memory barrier;
+- [x] instanced billboard rendering;
+- [x] additive blending and depth behavior;
+- [x] ImGui controls;
+- [x] project limitations and future work.
 
 Include this data-flow diagram or an equivalent one:
 
@@ -1780,20 +1837,20 @@ CPU / C++
       additive framebuffer blending
 ```
 
-- [ ] Make clear that the same SSBO is written by compute and read by graphics.
-- [ ] Explain why a barrier separates those operations.
-- [ ] Explain why instancing renders one quad per particle.
-- [ ] Explain why additive particles do not require sorting in this version.
-- [ ] Keep explanations connected to actual source files and symbols.
-- [ ] Remove all remaining starter-specific README instructions that no longer apply.
+- [x] Make clear that the same SSBO is written by compute and read by graphics.
+- [x] Explain why a barrier separates those operations.
+- [x] Explain why instancing renders one quad per particle.
+- [x] Explain why additive particles do not require sorting in this version.
+- [x] Keep explanations connected to actual source files and symbols.
+- [x] Remove all remaining starter-specific README instructions that no longer apply.
 
 ### Add visual media
 
-- [ ] Capture one clean screenshot.
+- [x] Capture one clean screenshot.
 - [ ] Capture a short GIF or video showing particle motion and the control panel.
-- [ ] Avoid enormous uncompressed media in Git history.
-- [ ] Use a deterministic seed for reproducible presentation media.
-- [ ] Add meaningful alt text.
+- [x] Avoid enormous uncompressed media in Git history.
+- [x] Use a deterministic seed for reproducible presentation media.
+- [x] Add meaningful alt text.
 - [ ] Confirm that README media renders on GitHub.
 
 ### Perform final repository review
